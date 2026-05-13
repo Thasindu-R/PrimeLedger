@@ -1,16 +1,29 @@
-export type TransactionType = 'income' | 'expense';
+export type TransactionType = 'Income' | 'Expense';
+
+export type IncomeCategory = 'Salary' | 'Freelance' | 'Investment' | 'Gift' | 'Other';
+
+export type ExpenseCategory = |'Food'
+                              |'Transport'
+                              |'Shopping'
+                              |'Utilities'
+                              |'Entertainment'
+                              |'Health'
+                              |'Education'
+                              |'Other';
+
+export type Category = 'IncomeCategory' | 'ExpenseCategory';
 
 export interface Transaction {
   id: string;
-  description: string;
-  amount: number;
   type: TransactionType;
-  category: string;
-  date: string; // ISO string: "2026-05-06"
+  category: Category;
+  amount: number;
+  date: string;
+  description?: string;
 }
 
-export interface MonthlySummary {
-  month: string;
-  income: number;
-  expense: number;
+export interface Summary {
+  totalIncome: number;
+  totalExpense: number;
+  balance: number;
 }
