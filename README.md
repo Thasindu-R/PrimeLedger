@@ -202,7 +202,7 @@ This project is licensed under the [MIT License](LICENSE).
 
 ## 👤 Author
 
-**Thasindu** — Undergraduate - BSc(Hons) Computer Science, University of Colombo School of Computing
+**Thasindu Ramsitha** — Undergraduate - BSc(Hons) Computer Science, University of Colombo School of Computing
 
 - GitHub: [@Thasindu_R](https://github.com/Thasindu-R)
 - LinkedIn: [Thasindu Ramsitha](https://www.linkedin.com/in/thasindu-ramsitha-3b42a91b4?utm_source=share_via&utm_content=profile&utm_medium=member_android)
