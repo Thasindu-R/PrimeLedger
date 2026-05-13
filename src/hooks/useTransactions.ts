@@ -130,7 +130,6 @@ export function useTransactions() {
   }, [transactions]);
 
   //CRUD ops
-
   const addTransaction = useCallback(
     (data: Omit<Transaction, 'id'>): void => {
       const newTransaction: Transaction = {
