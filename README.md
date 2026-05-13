@@ -27,7 +27,6 @@ A personal finance management web app built with **React** and **TypeScript**. L
 
 ## 🛠️ Tech Stack
 
-|-------------------|------------------------------------------------|
 |       Layer       |                  Technology                    |
 |-------------------|------------------------------------------------|
 | UI framework      | [React 19](https://react.dev)                  |
@@ -38,7 +37,7 @@ A personal finance management web app built with **React** and **TypeScript**. L
 | Icons             | [Lucide React](https://lucide.dev)             |
 | Containerization  | [Docker](https://www.docker.com) + Nginx       |
 | Package manager   | npm                                            |
-|-------------------|------------------------------------------------|
+
 ---
 
 ## 📁 Project Structure
@@ -131,14 +130,12 @@ Open [http://localhost:8080](http://localhost:8080) in your browser.
 
 ## 📜 Available Scripts
 
-|--------------------|------------------------------------------------|
 |      Command       |                 Description                    |
 |--------------------|------------------------------------------------|
 | `npm run dev`      | Start Vite development server with hot reload  |
 | `npm run build`    | Compile TypeScript and bundle for production   |
 | `npm run preview`  | Preview the production build locally           |
 | `npx tsc --noEmit` | Type-check the entire project without building |
-|--------------------|------------------------------------------------|
 
 ---
 
@@ -173,7 +170,6 @@ Transactions are serialized to JSON and stored in `localStorage` under the key `
 
 ## 🗂️ Transaction Categories
 
-|------------|---------------|
 |   Income   |    Expense    |
 |------------|---------------|
 | Salary     | Food          |
@@ -184,7 +180,6 @@ Transactions are serialized to JSON and stored in `localStorage` under the key `
 |            | Health        |
 |            | Education     |
 |            | Other         |
-|------------|---------------|
 
 ---
 
