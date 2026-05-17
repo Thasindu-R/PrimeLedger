@@ -1,95 +1,142 @@
-import React, { useState } from "react";
-import { useTransactions } from "../hooks/useTransactions";
+import React, { useState } from 'react';
+import { PlusCircle } from 'lucide-react';
+import type { Transaction, TransactionType, Category, IncomeCategory, ExpenseCategory } from '../types';
 
-const INCOME_CATEGORIES = [
-  "Salary",
-  "Freelance",
-  "Investment",
-  "Gift",
-  "Other",
-];
-const EXPENSE_CATEGORIES = [
-  "Food",
-  "Transport",
-  "Shopping",
-  "Utilities",
-  "Entertainment",
-  "Health",
-  "Education",
-  "Other",
-];
+const INCOME_CATEGORIES: IncomeCategory[] = ['Salary', 'Freelance', 'Investment', 'Gift', 'Other'];
+const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Food', 'Transport', 'Shopping', 'Utilities', 'Entertainment', 'Health', 'Education', 'Other'];
 
-export default function TransactionForm(): React.ReactElement {
-  const { addTransaction } = useTransactions();
+interface TransactionFormProps {
+  onAdd: (data: Omit<Transaction, 'id'>) => void;
+}
 
-  const [type, setType] = useState<"Income" | "Expense">("Expense");
-  const [category, setCategory] = useState<string>(EXPENSE_CATEGORIES[0]);
-  const [amount, setAmount] = useState<string>("");
-  const [date, setDate] = useState<string>(
-    new Date().toISOString().slice(0, 10),
-  );
-  const [description, setDescription] = useState<string>("");
+export default function TransactionForm({ onAdd }: TransactionFormProps): React.ReactElement {
+  const [type, setType] = useState<TransactionType>('Expense');
+  const [category, setCategory] = useState<Category>(EXPENSE_CATEGORIES[0]);
+  const [amount, setAmount] = useState<string>('');
+  const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [description, setDescription] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
-  function handleTypeChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const next = e.target.value as "Income" | "Expense";
-    setType(next);
-    setCategory(
-      next === "Income" ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0],
-    );
+  const categories = type === 'Income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+
+  function handleTypeChange(newType: TransactionType) {
+    setType(newType);
+    setCategory(newType === 'Income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]);
+    setError(null);
   }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
+    if (!description.trim()) {
+      setError('Please enter a description.');
+      return;
+    }
+
     const parsed = parseFloat(amount);
     if (Number.isNaN(parsed) || parsed <= 0) {
-      setError("Please enter a valid amount greater than 0.");
+      setError('Please enter a valid amount greater than 0.');
       return;
     }
 
     if (!date) {
-      setError("Please select a date.");
+      setError('Please select a date.');
       return;
     }
 
-    // addTransaction expects an object matching Transaction minus id
-    try {
-      addTransaction({
-        type,
-        category,
-        amount: parsed,
-        date,
-        description: description || undefined,
-      } as any);
+    onAdd({
+      type,
+      category,
+      amount: parsed,
+      date,
+      description: description.trim(),
+    });
 
-      // reset form
-      setAmount("");
-      setDescription("");
-      setDate(new Date().toISOString().slice(0, 10));
-      setType("Expense");
-      setCategory(EXPENSE_CATEGORIES[0]);
-    } catch (err) {
-      setError("Failed to add transaction.");
-    }
+    // Reset form
+    setAmount('');
+    setDescription('');
+    setDate(new Date().toISOString().slice(0, 10));
+    setType('Expense');
+    setCategory(EXPENSE_CATEGORIES[0]);
   }
 
-  const categories = type === "Income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
-
   return (
-    <form onSubmit={handleSubmit} className="transaction-form">
-      <div>
-        <label>Type</label>
-        <select value={type} onChange={handleTypeChange}>
-          <option value="Expense">Expense</option>
-          <option value="Income">Income</option>
-        </select>
+    <form
+      onSubmit={handleSubmit}
+      className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4"
+    >
+      <h2 className="text-lg font-semibold text-gray-800">Add Transaction</h2>
+
+      {/* Type Toggle */}
+      <div className="flex rounded-xl overflow-hidden border border-gray-200">
+        <button
+          type="button"
+          onClick={() => handleTypeChange('Income')}
+          className={`flex-1 py-2.5 text-sm font-semibold transition-colors duration-150 cursor-pointer ${
+            type === 'Income'
+              ? 'bg-emerald-500 text-white'
+              : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+          }`}
+        >
+          Income
+        </button>
+        <button
+          type="button"
+          onClick={() => handleTypeChange('Expense')}
+          className={`flex-1 py-2.5 text-sm font-semibold transition-colors duration-150 cursor-pointer ${
+            type === 'Expense'
+              ? 'bg-red-500 text-white'
+              : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+          }`}
+        >
+          Expense
+        </button>
       </div>
 
+      {/* Description */}
       <div>
-        <label>Category</label>
-        <select value={category} onChange={(e) => setCategory(e.target.value)}>
+        <label htmlFor="form-description" className="block text-sm font-medium text-gray-600 mb-1">
+          Description
+        </label>
+        <input
+          id="form-description"
+          type="text"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="e.g. Monthly salary"
+          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition"
+        />
+      </div>
+
+      {/* Amount */}
+      <div>
+        <label htmlFor="form-amount" className="block text-sm font-medium text-gray-600 mb-1">
+          Amount (Rs.)
+        </label>
+        <input
+          id="form-amount"
+          type="number"
+          step="0.01"
+          min="0"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="0.00"
+          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition"
+        />
+      </div>
+
+      {/* Category */}
+      <div>
+        <label htmlFor="form-category" className="block text-sm font-medium text-gray-600 mb-1">
+          Category
+        </label>
+        <select
+          id="form-category"
+          value={category}
+          onChange={(e) => setCategory(e.target.value as Category)}
+          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition appearance-none"
+        >
           {categories.map((c) => (
             <option key={c} value={c}>
               {c}
@@ -98,42 +145,33 @@ export default function TransactionForm(): React.ReactElement {
         </select>
       </div>
 
+      {/* Date */}
       <div>
-        <label>Amount</label>
+        <label htmlFor="form-date" className="block text-sm font-medium text-gray-600 mb-1">
+          Date
+        </label>
         <input
-          type="number"
-          step="0.01"
-          min="0"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="0.00"
-        />
-      </div>
-
-      <div>
-        <label>Date</label>
-        <input
+          id="form-date"
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
+          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition"
         />
       </div>
 
-      <div>
-        <label>Description</label>
-        <input
-          type="text"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Optional description"
-        />
-      </div>
+      {/* Error */}
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+      )}
 
-      {error && <div style={{ color: "var(--danger, #c00)" }}>{error}</div>}
-
-      <div>
-        <button type="submit">Add Transaction</button>
-      </div>
+      {/* Submit */}
+      <button
+        type="submit"
+        className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors duration-150 cursor-pointer"
+      >
+        <PlusCircle className="w-5 h-5" />
+        Add Transaction
+      </button>
     </form>
   );
 }

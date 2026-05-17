@@ -11,7 +11,7 @@ export type ExpenseCategory = |'Food'
                               |'Education'
                               |'Other';
 
-export type Category = 'IncomeCategory' | 'ExpenseCategory';
+export type Category = IncomeCategory | ExpenseCategory;
 
 export interface Transaction {
   id: string;
