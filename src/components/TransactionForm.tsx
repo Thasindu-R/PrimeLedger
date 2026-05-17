@@ -1,177 +1,236 @@
-import React, { useState } from 'react';
-import { PlusCircle } from 'lucide-react';
-import type { Transaction, TransactionType, Category, IncomeCategory, ExpenseCategory } from '../types';
+import { useState } from 'react';
+import { Plus, X, TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
+import type { Transaction, TransactionType, Category } from '../types';
 
-const INCOME_CATEGORIES: IncomeCategory[] = ['Salary', 'Freelance', 'Investment', 'Gift', 'Other'];
-const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Food', 'Transport', 'Shopping', 'Utilities', 'Entertainment', 'Health', 'Education', 'Other'];
+interface FormState {
+  description: string;
+  amount: string;
+  type: TransactionType;
+  category: Category;
+  date: string;
+}
 
 interface TransactionFormProps {
+  isOpen: boolean;
+  onClose: () => void;
   onAdd: (data: Omit<Transaction, 'id'>) => void;
 }
 
-export default function TransactionForm({ onAdd }: TransactionFormProps): React.ReactElement {
-  const [type, setType] = useState<TransactionType>('Expense');
-  const [category, setCategory] = useState<Category>(EXPENSE_CATEGORIES[0]);
-  const [amount, setAmount] = useState<string>('');
-  const [date, setDate] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [description, setDescription] = useState<string>('');
+const INCOME_CATEGORIES: Category[] = ['Salary', 'Freelance', 'Gift', 'Other'];
+const EXPENSE_CATEGORIES: Category[] = ['Food', 'Transport', 'Utilities', 'Entertainment', 'Health', 'Education', 'Other'];
+
+export function AddTransactionButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors shadow-sm"
+    >
+      <Plus size={16} />
+      Add Transaction
+    </button>
+  );
+}
+
+export function TransactionForm({
+  isOpen,
+  onClose,
+  onAdd,
+}: TransactionFormProps) {
+  const [formState, setFormState] = useState<FormState>({
+    description: '',
+    amount: '',
+    type: 'Income',
+    category: 'Salary',
+    date: new Date().toISOString().split('T')[0],
+  });
   const [error, setError] = useState<string | null>(null);
 
-  const categories = type === 'Income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const categories = formState.type === 'Income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
-  function handleTypeChange(newType: TransactionType) {
-    setType(newType);
-    setCategory(newType === 'Income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0]);
+  const handleTypeChange = (type: TransactionType) => {
+    setFormState({
+      ...formState,
+      type,
+      category: type === 'Income' ? 'Salary' : 'Food',
+    });
     setError(null);
-  }
+  };
 
-  function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!description.trim()) {
-      setError('Please enter a description.');
+    if (!formState.description.trim()) {
+      setError('Please enter a description');
       return;
     }
 
-    const parsed = parseFloat(amount);
-    if (Number.isNaN(parsed) || parsed <= 0) {
-      setError('Please enter a valid amount greater than 0.');
-      return;
-    }
-
-    if (!date) {
-      setError('Please select a date.');
+    const amount = parseFloat(formState.amount);
+    if (isNaN(amount) || amount <= 0) {
+      setError('Please enter a valid amount');
       return;
     }
 
     onAdd({
-      type,
-      category,
-      amount: parsed,
-      date,
-      description: description.trim(),
+      type: formState.type,
+      category: formState.category,
+      amount,
+      date: formState.date,
+      description: formState.description.trim(),
     });
 
-    // Reset form
-    setAmount('');
-    setDescription('');
-    setDate(new Date().toISOString().slice(0, 10));
-    setType('Expense');
-    setCategory(EXPENSE_CATEGORIES[0]);
-  }
+    setFormState({
+      description: '',
+      amount: '',
+      type: 'Income',
+      category: 'Salary',
+      date: new Date().toISOString().split('T')[0],
+    });
+    onClose();
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4"
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
     >
-      <h2 className="text-lg font-semibold text-gray-800">Add Transaction</h2>
-
-      {/* Type Toggle */}
-      <div className="flex rounded-xl overflow-hidden border border-gray-200">
-        <button
-          type="button"
-          onClick={() => handleTypeChange('Income')}
-          className={`flex-1 py-2.5 text-sm font-semibold transition-colors duration-150 cursor-pointer ${
-            type === 'Income'
-              ? 'bg-emerald-500 text-white'
-              : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-          }`}
-        >
-          Income
-        </button>
-        <button
-          type="button"
-          onClick={() => handleTypeChange('Expense')}
-          className={`flex-1 py-2.5 text-sm font-semibold transition-colors duration-150 cursor-pointer ${
-            type === 'Expense'
-              ? 'bg-red-500 text-white'
-              : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-          }`}
-        >
-          Expense
-        </button>
-      </div>
-
-      {/* Description */}
-      <div>
-        <label htmlFor="form-description" className="block text-sm font-medium text-gray-600 mb-1">
-          Description
-        </label>
-        <input
-          id="form-description"
-          type="text"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="e.g. Monthly salary"
-          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition"
-        />
-      </div>
-
-      {/* Amount */}
-      <div>
-        <label htmlFor="form-amount" className="block text-sm font-medium text-gray-600 mb-1">
-          Amount (Rs.)
-        </label>
-        <input
-          id="form-amount"
-          type="number"
-          step="0.01"
-          min="0"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="0.00"
-          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition"
-        />
-      </div>
-
-      {/* Category */}
-      <div>
-        <label htmlFor="form-category" className="block text-sm font-medium text-gray-600 mb-1">
-          Category
-        </label>
-        <select
-          id="form-category"
-          value={category}
-          onChange={(e) => setCategory(e.target.value as Category)}
-          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition appearance-none"
-        >
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Date */}
-      <div>
-        <label htmlFor="form-date" className="block text-sm font-medium text-gray-600 mb-1">
-          Date
-        </label>
-        <input
-          id="form-date"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition"
-        />
-      </div>
-
-      {/* Error */}
-      {error && (
-        <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
-      )}
-
-      {/* Submit */}
-      <button
-        type="submit"
-        className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors duration-150 cursor-pointer"
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 relative"
+        onClick={(e) => e.stopPropagation()}
       >
-        <PlusCircle className="w-5 h-5" />
-        Add Transaction
-      </button>
-    </form>
+        {/* Modal Header */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-gray-800">Add Transaction</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-400 hover:text-gray-600"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Type Toggle */}
+        <div className="grid grid-cols-2 gap-2 mb-5">
+          <button
+            onClick={() => handleTypeChange('Income')}
+            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              formState.type === 'Income'
+                ? 'bg-green-500 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            <TrendingUp size={15} />
+            Income
+          </button>
+          <button
+            onClick={() => handleTypeChange('Expense')}
+            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              formState.type === 'Expense'
+                ? 'bg-red-500 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            <TrendingDown size={15} />
+            Expense
+          </button>
+        </div>
+
+        {/* Form Fields */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Description */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1.5 block">
+              Description
+            </label>
+            <input
+              type="text"
+              value={formState.description}
+              onChange={(e) =>
+                setFormState({ ...formState, description: e.target.value })
+              }
+              placeholder="e.g. Monthly salary, Grocery run..."
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-green-300 focus:border-transparent placeholder-gray-300"
+            />
+          </div>
+
+          {/* Amount */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1.5 block">
+              Amount
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                Rs.
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={formState.amount}
+                onChange={(e) =>
+                  setFormState({ ...formState, amount: e.target.value })
+                }
+                placeholder="0.00"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-green-300 focus:border-transparent placeholder-gray-300 pl-10"
+              />
+            </div>
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1.5 block">
+              Category
+            </label>
+            <select
+              value={formState.category}
+              onChange={(e) =>
+                setFormState({ ...formState, category: e.target.value as Category })
+              }
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-green-300 focus:border-transparent bg-white"
+            >
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date */}
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1.5 block">
+              Date
+            </label>
+            <input
+              type="date"
+              value={formState.date}
+              onChange={(e) =>
+                setFormState({ ...formState, date: e.target.value })
+              }
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-green-300 focus:border-transparent"
+            />
+          </div>
+
+          {/* Error */}
+          {error && (
+            <p className="text-xs text-red-500 flex items-center gap-1">
+              <AlertCircle size={12} />
+              {error}
+            </p>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2 mt-6"
+          >
+            <Plus size={16} />
+            Add Transaction
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }

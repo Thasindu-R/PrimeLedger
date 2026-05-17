@@ -3,6 +3,7 @@ interface PageHeaderProps {
   userName: string;
   activeTab: string;
   onTabChange: (tab: string) => void;
+  rightSlot?: React.ReactNode;
 }
 
 const tabs = ['Overview', 'Analytics', 'Transactions', 'Settings'];
@@ -27,7 +28,7 @@ function TabNav({ activeTab, onTabChange }: { activeTab: string; onTabChange: (t
   );
 }
 
-export function PageHeader({ userName, activeTab, onTabChange }: PageHeaderProps) {
+export function PageHeader({ userName, activeTab, onTabChange, rightSlot }: PageHeaderProps) {
   return (
     <header className="w-full bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
       {/* Left Side - Greeting */}
@@ -40,8 +41,11 @@ export function PageHeader({ userName, activeTab, onTabChange }: PageHeaderProps
         </p>
       </div>
 
-      {/* Right Side - Tab Navigation */}
-      <TabNav activeTab={activeTab} onTabChange={onTabChange} />
+      {/* Right Side */}
+      <div className="flex items-center gap-6">
+        {rightSlot}
+        <TabNav activeTab={activeTab} onTabChange={onTabChange} />
+      </div>
     </header>
   );
 }

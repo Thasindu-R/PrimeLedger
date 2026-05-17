@@ -1,111 +1,144 @@
-import React from 'react';
-import { Search, Inbox, ArrowDownUp } from 'lucide-react';
+import { useState } from 'react';
+import { Search, SlidersHorizontal, Receipt } from 'lucide-react';
 import type { Transaction } from '../types';
-import type { TransactionFilters, SortConfig, SortField } from '../hooks/useTransactions';
-import TransactionItem from './TransactionItem';
+import { TransactionItem } from './TransactionItem';
 
 interface TransactionListProps {
   transactions: Transaction[];
   onDelete: (id: string) => void;
-  filters: TransactionFilters;
-  onFilterChange: (patch: Partial<TransactionFilters>) => void;
-  sort: SortConfig;
-  onSortChange: (field: SortField) => void;
+  onSearchChange: (term: string) => void;
+  onTypeFilter: (type: 'income' | 'expense' | undefined) => void;
+  onSortChange: (value: string) => void;
+  activeType?: 'income' | 'expense';
 }
 
-type FilterType = 'All' | 'Income' | 'Expense';
-
-export default function TransactionList({
+export function TransactionList({
   transactions,
   onDelete,
-  filters,
-  onFilterChange,
-  sort,
+  onSearchChange,
+  onTypeFilter,
   onSortChange,
-}: TransactionListProps): React.ReactElement {
-  const activeType: FilterType = filters.type ?? 'All';
+  activeType,
+}: TransactionListProps) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
-  function handleTypeFilter(value: FilterType) {
-    if (value === 'All') {
-      onFilterChange({ type: undefined });
-    } else {
-      onFilterChange({ type: value });
-    }
-  }
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    onSearchChange(value);
+  };
+
+  const handleTypeFilter = (type: 'income' | 'expense' | undefined) => {
+    onTypeFilter(type);
+  };
+
+  const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    onSortChange(e.target.value);
+  };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-      <h2 className="text-lg font-semibold text-gray-800">Transactions</h2>
-
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        {/* Search */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search transactions…"
-            value={filters.search ?? ''}
-            onChange={(e) => onFilterChange({ search: e.target.value || undefined })}
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition"
-          />
+    <div className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm">
+      {/* Section 1 - Card Header */}
+      <div className="flex items-center justify-between p-6 border-b border-gray-50">
+        {/* Left */}
+        <div>
+          <h2 className="text-base font-semibold text-gray-800">
+            Transaction and invoices
+          </h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Stay up to date on recent financial activities
+          </p>
         </div>
 
-        {/* Type Filter Buttons */}
-        <div className="flex rounded-xl overflow-hidden border border-gray-200">
-          {(['All', 'Income', 'Expense'] as FilterType[]).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => handleTypeFilter(value)}
-              className={`px-4 py-2 text-xs font-semibold transition-colors duration-150 cursor-pointer ${
-                activeType === value
-                  ? value === 'Income'
-                    ? 'bg-emerald-500 text-white'
-                    : value === 'Expense'
-                      ? 'bg-red-500 text-white'
-                      : 'bg-blue-600 text-white'
-                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              {value}
-            </button>
-          ))}
-        </div>
+        {/* Right */}
+        <div className="flex items-center gap-3">
+          {/* Search Input */}
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 w-56">
+            <Search size={14} className="text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search transactions..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className="bg-transparent text-sm outline-none text-gray-600 placeholder-gray-400 w-full"
+            />
+          </div>
 
-        {/* Sort Dropdown */}
-        <div className="relative">
-          <ArrowDownUp className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-          <select
-            value={sort.field}
-            onChange={(e) => onSortChange(e.target.value as SortField)}
-            className="pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition appearance-none cursor-pointer"
+          {/* Filter Dropdown Button */}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 hover:border-gray-300 cursor-pointer"
           >
-            <option value="date">Date</option>
-            <option value="amount">Amount</option>
-            <option value="category">Category</option>
-            <option value="type">Type</option>
-          </select>
+            <SlidersHorizontal size={14} className="text-gray-400" />
+            <span>Filter</span>
+          </button>
         </div>
       </div>
 
-      {/* Result Count */}
-      <p className="text-xs text-gray-400 font-medium">
-        {transactions.length} transaction{transactions.length !== 1 ? 's' : ''} found
-      </p>
+      {/* Section 2 - Filter Bar */}
+      {showFilters && (
+        <div className="flex items-center gap-3 px-6 py-3 border-b border-gray-50 bg-gray-50/50 flex-wrap">
+          {/* Type Filter */}
+          <div className="flex gap-1">
+            {[
+              { label: 'All', value: undefined },
+              { label: 'Income', value: 'income' as const },
+              { label: 'Expense', value: 'expense' as const },
+            ].map((filter) => (
+              <button
+                key={filter.label}
+                onClick={() => handleTypeFilter(filter.value)}
+                className={`${
+                  (activeType === filter.value && filter.value !== undefined) ||
+                  (activeType === undefined && filter.value === undefined)
+                    ? 'bg-white border border-gray-200 shadow-sm text-gray-800'
+                    : 'text-gray-400 hover:text-gray-600'
+                } text-xs font-medium px-3 py-1.5 rounded-lg transition-colors`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
 
-      {/* Transaction List */}
+          {/* Sort Dropdown */}
+          <select
+            onChange={handleSortChange}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-500 outline-none bg-white cursor-pointer"
+          >
+            <option value="date-newest">Date (Newest)</option>
+            <option value="date-oldest">Date (Oldest)</option>
+            <option value="amount-high">Amount (High)</option>
+            <option value="amount-low">Amount (Low)</option>
+            <option value="category">Category</option>
+          </select>
+
+          {/* Results Count */}
+          <span className="text-xs text-gray-400 ml-auto">
+            Showing {transactions.length} transaction
+            {transactions.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
+
+      {/* Section 3 - Transaction Rows */}
       {transactions.length > 0 ? (
-        <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
-          {transactions.map((t) => (
-            <TransactionItem key={t.id} transaction={t} onDelete={onDelete} />
+        <div className="max-h-96 overflow-y-auto px-3 divide-y divide-gray-50">
+          {transactions.map((transaction) => (
+            <TransactionItem
+              key={transaction.id}
+              transaction={transaction}
+              onDelete={onDelete}
+            />
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-          <Inbox className="w-12 h-12 mb-3 text-gray-300" />
-          <p className="text-sm font-medium">No transactions found</p>
-          <p className="text-xs mt-1">Add your first transaction to get started</p>
+        <div className="flex flex-col items-center justify-center py-16 text-gray-300">
+          <Receipt size={40} strokeWidth={1.5} />
+          <p className="text-sm mt-3 font-medium">No transactions found</p>
+          <p className="text-xs mt-1">
+            Add your first transaction using the form above
+          </p>
         </div>
       )}
     </div>

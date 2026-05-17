@@ -1,61 +1,74 @@
-import React from 'react';
-import { Trash2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Trash2 } from 'lucide-react';
 import type { Transaction } from '../types';
-import { formatCurrency, formatDate } from '../utils/formatCurrency';
 
 interface TransactionItemProps {
   transaction: Transaction;
   onDelete: (id: string) => void;
 }
 
-export default function TransactionItem({ transaction, onDelete }: TransactionItemProps): React.ReactElement {
+export function TransactionItem({ transaction, onDelete }: TransactionItemProps) {
   const isIncome = transaction.type === 'Income';
 
+  const formatDate = (dateString: string) => {
+    return new Date(dateString + 'T00:00:00').toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const formatAmount = (amount: number) => {
+    return amount.toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
   return (
-    <div
-      className={`group flex items-center gap-4 bg-white rounded-xl border border-gray-100 p-4 hover:shadow-md transition-all duration-200 ${
-        isIncome ? 'border-l-4 border-l-emerald-500' : 'border-l-4 border-l-red-500'
-      }`}
-    >
-      {/* Category Badge & Description */}
+    <div className="flex items-center gap-4 py-4 border-b border-gray-50 last:border-0 hover:bg-gray-50 rounded-xl px-3 transition-colors group">
+      {/* Left - Category Icon Container */}
+      <div
+        className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+          isIncome ? 'bg-green-50' : 'bg-red-50'
+        }`}
+      >
+        {isIncome ? (
+          <ArrowDownLeft size={18} className="text-green-500" />
+        ) : (
+          <ArrowUpRight size={18} className="text-red-500" />
+        )}
+      </div>
+
+      {/* Center - Description and Meta */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span
-            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-              isIncome
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-red-100 text-red-700'
-            }`}
-          >
+        <p className="text-sm font-medium text-gray-800 truncate">
+          {transaction.description || transaction.category}
+        </p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">
             {transaction.category}
           </span>
+          <span className="w-1 h-1 rounded-full bg-gray-300"></span>
           <span className="text-xs text-gray-400">{formatDate(transaction.date)}</span>
         </div>
-        <p className="text-sm font-medium text-gray-800 truncate">
-          {transaction.description || '—'}
-        </p>
       </div>
 
-      {/* Amount */}
-      <div className="flex-shrink-0 text-right">
-        <p
-          className={`text-base font-bold ${
-            isIncome ? 'text-emerald-600' : 'text-red-600'
+      {/* Right - Amount and Delete */}
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <span
+          className={`text-sm font-semibold ${
+            isIncome ? 'text-green-600' : 'text-red-500'
           }`}
         >
-          {isIncome ? '+' : '-'}{formatCurrency(transaction.amount)}
-        </p>
+          {isIncome ? '+' : '-'}Rs. {formatAmount(transaction.amount)}
+        </span>
+        <button
+          onClick={() => onDelete(transaction.id)}
+          className="sm:opacity-0 opacity-100 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400"
+        >
+          <Trash2 size={15} />
+        </button>
       </div>
-
-      {/* Delete Button */}
-      <button
-        type="button"
-        onClick={() => onDelete(transaction.id)}
-        className="flex-shrink-0 p-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all duration-150 cursor-pointer"
-        aria-label="Delete transaction"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
     </div>
   );
 }
