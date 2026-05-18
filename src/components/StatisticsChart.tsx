@@ -91,7 +91,7 @@ export function StatisticsChart({
 
       {/* Section 2 - Recharts AreaChart */}
       <ResponsiveContainer width="100%" height={280}>
-        <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} syncId="stats">
           <defs>
             <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#22c55e" stopOpacity={0.15} />
@@ -110,15 +110,26 @@ export function StatisticsChart({
             tickLine={false}
           />
           <YAxis
+            yAxisId="left"
             tick={{ fontSize: 12, fill: '#9ca3af' }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `Rs. ${(v / 1000).toFixed(0)}k`}
           />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tick={{ fontSize: 12, fill: '#9ca3af' }}
+            axisLine={false}
+            tickLine={false}
+            tickFormatter={(v) => `Rs. ${(v / 1000).toFixed(0)}k`}
+            hide={true}
+          />
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
           <Tooltip content={<CustomTooltip />} />
 
           <Area
+            yAxisId="left"
             type="monotone"
             dataKey="income"
             name="Income"
@@ -129,6 +140,7 @@ export function StatisticsChart({
             activeDot={{ r: 5, fill: '#22c55e', strokeWidth: 0 }}
           />
           <Area
+            yAxisId="right"
             type="monotone"
             dataKey="expense"
             name="Expenses"

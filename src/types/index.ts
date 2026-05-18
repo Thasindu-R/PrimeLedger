@@ -1,4 +1,4 @@
-export type TransactionType = 'Income' | 'Expense';
+export type TransactionType = 'income' | 'expense';
 
 export type IncomeCategory = 'Salary' | 'Freelance' | 'Investment' | 'Gift' | 'Other';
 

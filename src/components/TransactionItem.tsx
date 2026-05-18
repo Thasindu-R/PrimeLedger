@@ -7,7 +7,7 @@ interface TransactionItemProps {
 }
 
 export function TransactionItem({ transaction, onDelete }: TransactionItemProps) {
-  const isIncome = transaction.type === 'Income';
+  const isIncome = transaction.type === 'income';
 
   const formatDate = (dateString: string) => {
     return new Date(dateString + 'T00:00:00').toLocaleDateString('en-GB', {
