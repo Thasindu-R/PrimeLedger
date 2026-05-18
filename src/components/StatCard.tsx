@@ -1,4 +1,5 @@
 import { TrendingUp, TrendingDown } from 'lucide-react';
+import { formatCurrencyParts } from '../utils/formatCurrency';
 
 interface StatCardProps {
   label: string;
@@ -15,20 +16,7 @@ export function StatCard({
   variant,
   icon,
 }: StatCardProps) {
-  const formatAmount = (value: number) => {
-    const formatter = new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    const formatted = formatter.format(value);
-    const parts = formatted.split('.');
-    return {
-      whole: parts[0],
-      decimal: parts[1] || '00',
-    };
-  };
-
-  const { whole, decimal } = formatAmount(amount);
+  const { whole, decimal } = formatCurrencyParts(amount);
   const isPositive = changePercent >= 0;
 
   return (
@@ -54,8 +42,8 @@ export function StatCard({
 
       {/* Section 3 - Amount */}
       <div>
-        <span className="text-3xl font-bold text-gray-900">${whole}</span>
-        <span className="text-xl font-bold text-gray-400">.{decimal}</span>
+        <span className="text-3xl font-bold text-gray-900">{whole}</span>
+        <span className="text-xl font-bold text-gray-400">{decimal}</span>
       </div>
 
       {/* Section 4 - Percentage Change */}

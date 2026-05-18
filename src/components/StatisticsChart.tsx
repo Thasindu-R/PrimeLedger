@@ -8,6 +8,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Calendar, TrendingUp } from 'lucide-react';
+import { formatCurrencyParts, formatCurrency } from '../utils/formatCurrency';
 
 export interface MonthlyDataPoint {
   month: string;
@@ -45,24 +46,11 @@ function CustomTooltip({ active, payload, label }: any) {
       <p className="font-semibold mb-1">{label}</p>
       {payload.map((entry: any) => (
         <p key={entry.name} style={{ color: entry.color }}>
-          {entry.name}: ${entry.value.toLocaleString()}
+          {entry.name}: {formatCurrency(entry.value)}
         </p>
       ))}
     </div>
   );
-}
-
-function formatAmount(value: number) {
-  const formatter = new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  const formatted = formatter.format(value);
-  const parts = formatted.split('.');
-  return {
-    whole: parts[0],
-    decimal: parts[1] || '00',
-  };
 }
 
 export function StatisticsChart({
@@ -72,8 +60,8 @@ export function StatisticsChart({
   avgIncomeChange,
   avgExpenseChange,
 }: StatisticsChartProps) {
-  const avgIncomeFormatted = formatAmount(avgIncome);
-  const avgExpenseFormatted = formatAmount(avgExpense);
+  const avgIncomeFormatted = formatCurrencyParts(avgIncome);
+  const avgExpenseFormatted = formatCurrencyParts(avgExpense);
 
   return (
     <div className="w-full bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
@@ -125,7 +113,7 @@ export function StatisticsChart({
             tick={{ fontSize: 12, fill: '#9ca3af' }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+            tickFormatter={(v) => `Rs. ${(v / 1000).toFixed(0)}k`}
           />
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
           <Tooltip content={<CustomTooltip />} />
@@ -160,10 +148,10 @@ export function StatisticsChart({
           <p className="text-xs text-gray-400 mb-1">Average income</p>
           <div>
             <span className="text-2xl font-bold text-gray-900">
-              ${avgIncomeFormatted.whole}
+              {avgIncomeFormatted.whole}
             </span>
             <span className="text-lg font-bold text-gray-400">
-              .{avgIncomeFormatted.decimal}
+              {avgIncomeFormatted.decimal}
             </span>
           </div>
           <div className="flex items-center gap-1 mt-2">
@@ -179,10 +167,10 @@ export function StatisticsChart({
           <p className="text-xs text-gray-400 mb-1">Average expenses</p>
           <div>
             <span className="text-2xl font-bold text-gray-900">
-              ${avgExpenseFormatted.whole}
+              {avgExpenseFormatted.whole}
             </span>
             <span className="text-lg font-bold text-gray-400">
-              .{avgExpenseFormatted.decimal}
+              {avgExpenseFormatted.decimal}
             </span>
           </div>
           <div className="flex items-center gap-1 mt-2">
