@@ -175,11 +175,11 @@ export function useTransactions() {
 
   const summary: Summary = useMemo(() => {
     const totalIncome = transactions
-      .filter((t) => t.type === 'Income')
+      .filter((t) => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
 
     const totalExpense = transactions
-      .filter((t) => t.type === 'Expense')
+      .filter((t) => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
 
     return {
@@ -191,11 +191,11 @@ export function useTransactions() {
 
   const filteredSummary: Summary = useMemo(() => {
     const totalIncome = filteredTransactions
-      .filter((t) => t.type === 'Income')
+      .filter((t) => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
 
     const totalExpense = filteredTransactions
-      .filter((t) => t.type === 'Expense')
+      .filter((t) => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
 
     return {
@@ -206,12 +206,12 @@ export function useTransactions() {
   }, [filteredTransactions]);
 
   const incomeByCategory = useMemo(
-    () => buildCategoryBreakdown(transactions, 'Income'),
+    () => buildCategoryBreakdown(transactions, 'income'),
     [transactions],
   );
 
   const expenseByCategory = useMemo(
-    () => buildCategoryBreakdown(transactions, 'Expense'),
+    () => buildCategoryBreakdown(transactions, 'expense'),
     [transactions],
   );
 

@@ -39,19 +39,19 @@ export function TransactionForm({
   const [formState, setFormState] = useState<FormState>({
     description: '',
     amount: '',
-    type: 'Income',
+    type: 'income',
     category: 'Salary',
     date: new Date().toISOString().split('T')[0],
   });
   const [error, setError] = useState<string | null>(null);
 
-  const categories = formState.type === 'Income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const categories = formState.type === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
 
   const handleTypeChange = (type: TransactionType) => {
     setFormState({
       ...formState,
       type,
-      category: type === 'Income' ? 'Salary' : 'Food',
+      category: type === 'income' ? 'Salary' : 'Food',
     });
     setError(null);
   };
@@ -82,7 +82,7 @@ export function TransactionForm({
     setFormState({
       description: '',
       amount: '',
-      type: 'Income',
+      type: 'income',
       category: 'Salary',
       date: new Date().toISOString().split('T')[0],
     });
@@ -114,9 +114,9 @@ export function TransactionForm({
         {/* Type Toggle */}
         <div className="grid grid-cols-2 gap-2 mb-5">
           <button
-            onClick={() => handleTypeChange('Income')}
+            onClick={() => handleTypeChange('income')}
             className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
-              formState.type === 'Income'
+              formState.type === 'income'
                 ? 'bg-green-500 text-white shadow-sm'
                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
@@ -125,9 +125,9 @@ export function TransactionForm({
             Income
           </button>
           <button
-            onClick={() => handleTypeChange('Expense')}
+            onClick={() => handleTypeChange('expense')}
             className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
-              formState.type === 'Expense'
+              formState.type === 'expense'
                 ? 'bg-red-500 text-white shadow-sm'
                 : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
             }`}
