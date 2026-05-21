@@ -4,12 +4,7 @@ import { PieChart as PieChartIcon } from 'lucide-react';
 
 const RING_COLORS = ['#22c55e', '#ef4444', '#fb923c', '#3b82f6', '#a855f7', '#eab308', '#14b8a6'];
 
-const MOCK_CATEGORIES: CategoryBreakdown[] = [
-  { category: 'Entertainment', total: 3200, count: 5, percentage: 46 },
-  { category: 'Platform', total: 3900, count: 8, percentage: 56 },
-  { category: 'Shopping', total: 3350, count: 6, percentage: 48 },
-  { category: 'Food & health', total: 4400, count: 9, percentage: 63 },
-];
+
 
 export interface CategoryBreakdown {
   category: string;
@@ -29,11 +24,11 @@ export function AllExpensesPanel({
   daily,
   weekly,
   monthly,
-  categories = MOCK_CATEGORIES,
+  categories,
 }: AllExpensesPanelProps) {
   const [activePeriod, setActivePeriod] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
 
-  const displayCategories = categories.length > 0 ? categories : MOCK_CATEGORIES;
+  const displayCategories = categories;
   const largestCategory = displayCategories[0];
 
   if (displayCategories.length === 0) {

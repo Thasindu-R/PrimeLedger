@@ -1,5 +1,5 @@
 export function formatCurrency(amount: number): string {
-  const formatter = new Intl.NumberFormat('en-IN', {
+  const formatter = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
@@ -8,7 +8,7 @@ export function formatCurrency(amount: number): string {
 }
 
 export function formatCurrencyParts(amount: number): { whole: string; decimal: string } {
-  const formatter = new Intl.NumberFormat('en-IN', {
+  const formatter = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });

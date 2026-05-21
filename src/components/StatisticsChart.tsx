@@ -16,23 +16,8 @@ export interface MonthlyDataPoint {
   expense: number;
 }
 
-const MOCK_DATA: MonthlyDataPoint[] = [
-  { month: 'Jan', income: 12000, expense: 7000 },
-  { month: 'Feb', income: 14000, expense: 6500 },
-  { month: 'Mar', income: 13500, expense: 8000 },
-  { month: 'Apr', income: 15000, expense: 7200 },
-  { month: 'May', income: 14800, expense: 6800 },
-  { month: 'Jun', income: 13200, expense: 7500 },
-  { month: 'Jul', income: 16281, expense: 6638 },
-  { month: 'Aug', income: 15500, expense: 7100 },
-  { month: 'Sep', income: 14200, expense: 6900 },
-  { month: 'Oct', income: 15800, expense: 7300 },
-  { month: 'Nov', income: 16000, expense: 6700 },
-  { month: 'Dec', income: 15200, expense: 7800 },
-];
-
 interface StatisticsChartProps {
-  data?: MonthlyDataPoint[];
+  data: MonthlyDataPoint[];
   avgIncome: number;
   avgExpense: number;
   avgIncomeChange: number;
@@ -54,7 +39,7 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export function StatisticsChart({
-  data = MOCK_DATA,
+  data,
   avgIncome,
   avgExpense,
   avgIncomeChange,

@@ -18,7 +18,7 @@ export function TransactionItem({ transaction, onDelete }: TransactionItemProps)
   };
 
   const formatAmount = (amount: number) => {
-    return amount.toLocaleString('en-IN', {
+    return amount.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
