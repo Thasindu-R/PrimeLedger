@@ -6,6 +6,7 @@ import { BalanceCard } from './components/BalanceCard';
 import { StatCard } from './components/StatCard';
 import { StatisticsChart, type MonthlyDataPoint } from './components/StatisticsChart';
 import { AllExpensesPanel } from './components/AllExpensesPanel';
+import { AllIncomePanel } from './components/AllIncomePanel';
 import { PromoBanner } from './components/PromoBanner';
 import { TransactionList } from './components/TransactionList';
 import { TransactionForm, AddTransactionButton } from './components/TransactionForm';
@@ -18,6 +19,7 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 interface OverviewContentProps {
   summary: { balance: number; totalIncome: number; totalExpense: number };
   expenseByCategory: any;
+  incomeByCategory: any;
   monthlyChartData: MonthlyDataPoint[];
   sortedTransactions: any[];
   deleteTransaction: (id: string) => void;
@@ -29,6 +31,7 @@ interface OverviewContentProps {
 function OverviewContent({
   summary,
   expenseByCategory,
+  incomeByCategory,
   monthlyChartData,
   sortedTransactions,
   deleteTransaction,
@@ -78,6 +81,12 @@ function OverviewContent({
 
         {/* Right Column */}
         <div className="space-y-4">
+          <AllIncomePanel
+            daily={summary.totalIncome / 30}
+            weekly={summary.totalIncome / 4}
+            monthly={summary.totalIncome}
+            categories={incomeByCategory}
+          />
           <AllExpensesPanel
             daily={summary.totalExpense / 30}
             weekly={summary.totalExpense / 4}
@@ -109,6 +118,7 @@ interface TabContentProps {
   activeTab: string;
   summary: { balance: number; totalIncome: number; totalExpense: number };
   expenseByCategory: any;
+  incomeByCategory: any;
   monthlyChartData: MonthlyDataPoint[];
   sortedTransactions: any[];
   deleteTransaction: (id: string) => void;
@@ -118,7 +128,7 @@ interface TabContentProps {
   transactions: any[];
   filters: any;
   sort: any;
-  updateSort: (field: string) => void;
+  updateSort: (field: any) => void;
   userName: string;
   onUserNameChange: (name: string) => void;
   onClearAll: () => void;
@@ -128,6 +138,7 @@ function TabContent({
   activeTab,
   summary,
   expenseByCategory,
+  incomeByCategory,
   monthlyChartData,
   sortedTransactions,
   deleteTransaction,
@@ -147,6 +158,7 @@ function TabContent({
       <OverviewContent
         summary={summary}
         expenseByCategory={expenseByCategory}
+        incomeByCategory={incomeByCategory}
         monthlyChartData={monthlyChartData}
         sortedTransactions={sortedTransactions}
         deleteTransaction={deleteTransaction}
@@ -162,7 +174,7 @@ function TabContent({
         transactions={transactions}
         summary={summary}
         expenseByCategory={expenseByCategory}
-        incomeByCategory={[]}
+        incomeByCategory={incomeByCategory}
       />
     );
   }
@@ -206,6 +218,7 @@ export default function App() {
     clearAll,
     summary,
     expenseByCategory,
+    incomeByCategory,
     updateFilters,
     resetFilters,
     filters,
@@ -269,6 +282,7 @@ export default function App() {
           activeTab={activeTab}
           summary={summary}
           expenseByCategory={expenseByCategory}
+          incomeByCategory={incomeByCategory}
           monthlyChartData={monthlyChartData}
           sortedTransactions={sortedTransactions}
           deleteTransaction={handleDeleteTransaction}
