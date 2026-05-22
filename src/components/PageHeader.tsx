@@ -1,4 +1,3 @@
-
 interface PageHeaderProps {
   userName: string;
   activeTab: string;
@@ -6,19 +5,25 @@ interface PageHeaderProps {
   rightSlot?: React.ReactNode;
 }
 
-const tabs = ['Overview', 'Analytics', 'Transactions', 'Settings'];
+const tabs = ["Overview", "Analytics", "Transactions", "Settings"];
 
-function TabNav({ activeTab, onTabChange }: { activeTab: string; onTabChange: (tab: string) => void }) {
+function TabNav({
+  activeTab,
+  onTabChange,
+}: {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+}) {
   return (
-    <div className="flex gap-6">
+    <div className="flex gap-4 sm:gap-6 overflow-x-auto whitespace-nowrap pb-1">
       {tabs.map((tab) => (
         <button
           key={tab}
           onClick={() => onTabChange(tab)}
           className={`text-sm ${
             activeTab === tab
-              ? 'text-green-600 font-medium border-b-2 border-green-500 pb-1'
-              : 'text-gray-500 hover:text-gray-700'
+              ? "text-green-600 font-medium border-b-2 border-green-500 pb-1"
+              : "text-gray-500 hover:text-gray-700"
           }`}
         >
           {tab}
@@ -28,12 +33,17 @@ function TabNav({ activeTab, onTabChange }: { activeTab: string; onTabChange: (t
   );
 }
 
-export function PageHeader({ userName, activeTab, onTabChange, rightSlot }: PageHeaderProps) {
+export function PageHeader({
+  userName,
+  activeTab,
+  onTabChange,
+  rightSlot,
+}: PageHeaderProps) {
   return (
-    <header className="w-full bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+    <header className="w-full bg-white border-b border-gray-100 px-4 sm:px-6 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       {/* Left Side - Greeting */}
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
           Good morning, {userName}
         </h1>
         <p className="text-sm text-gray-400 mt-0.5">
@@ -42,7 +52,7 @@ export function PageHeader({ userName, activeTab, onTabChange, rightSlot }: Page
       </div>
 
       {/* Right Side */}
-      <div className="flex items-center gap-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
         {rightSlot}
         <TabNav activeTab={activeTab} onTabChange={onTabChange} />
       </div>

@@ -1,13 +1,19 @@
-import { useState, useEffect } from 'react';
-import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { CheckCircle, AlertCircle, Info, X } from "lucide-react";
 
 export interface ToastMessage {
   id: string;
   message: string;
-  type: 'success' | 'error' | 'info';
+  type: "success" | "error" | "info";
 }
 
-export function Toast({ toasts, onRemove }: { toasts: ToastMessage[]; onRemove: (id: string) => void }) {
+export function Toast({
+  toasts,
+  onRemove,
+}: {
+  toasts: ToastMessage[];
+  onRemove: (id: string) => void;
+}) {
   useEffect(() => {
     toasts.forEach((toast) => {
       const timer = setTimeout(() => {
@@ -17,23 +23,23 @@ export function Toast({ toasts, onRemove }: { toasts: ToastMessage[]; onRemove: 
     });
   }, [toasts, onRemove]);
 
-  const getIcon = (type: ToastMessage['type']) => {
+  const getIcon = (type: ToastMessage["type"]) => {
     switch (type) {
-      case 'success':
+      case "success":
         return <CheckCircle size={18} className="text-green-500" />;
-      case 'error':
+      case "error":
         return <AlertCircle size={18} className="text-red-500" />;
-      case 'info':
+      case "info":
         return <Info size={18} className="text-blue-500" />;
     }
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 space-y-2">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 space-y-2">
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="flex items-center gap-3 bg-white border border-gray-100 shadow-lg rounded-xl px-4 py-3 text-sm min-w-64"
+          className="flex items-center gap-3 bg-white border border-gray-100 shadow-lg rounded-xl px-4 py-3 text-sm w-[calc(100vw-2rem)] sm:w-auto sm:min-w-64 max-w-sm"
         >
           {getIcon(toast.type)}
           <span className="flex-1 text-gray-700">{toast.message}</span>
@@ -52,7 +58,7 @@ export function Toast({ toasts, onRemove }: { toasts: ToastMessage[]; onRemove: 
 export function useToast() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  function showToast(message: string, type: ToastMessage['type'] = 'info') {
+  function showToast(message: string, type: ToastMessage["type"] = "info") {
     const id = crypto.randomUUID();
     setToasts((prev) => [...prev, { id, message, type }]);
   }

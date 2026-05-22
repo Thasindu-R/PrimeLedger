@@ -1,15 +1,15 @@
-import { useState } from 'react';
-import { Search, SlidersHorizontal, Receipt } from 'lucide-react';
-import type { Transaction } from '../types';
-import { TransactionItem } from './TransactionItem';
+import { useState } from "react";
+import { Search, SlidersHorizontal, Receipt } from "lucide-react";
+import type { Transaction } from "../types";
+import { TransactionItem } from "./TransactionItem";
 
 interface TransactionListProps {
   transactions: Transaction[];
   onDelete: (id: string) => void;
   onSearchChange: (term: string) => void;
-  onTypeFilter: (type: 'income' | 'expense' | undefined) => void;
+  onTypeFilter: (type: "income" | "expense" | undefined) => void;
   onSortChange: (value: string) => void;
-  activeType?: 'income' | 'expense';
+  activeType?: "income" | "expense";
 }
 
 export function TransactionList({
@@ -20,7 +20,7 @@ export function TransactionList({
   onSortChange,
   activeType,
 }: TransactionListProps) {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,7 +29,7 @@ export function TransactionList({
     onSearchChange(value);
   };
 
-  const handleTypeFilter = (type: 'income' | 'expense' | undefined) => {
+  const handleTypeFilter = (type: "income" | "expense" | undefined) => {
     onTypeFilter(type);
   };
 
@@ -40,7 +40,7 @@ export function TransactionList({
   return (
     <div className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm">
       {/* Section 1 - Card Header */}
-      <div className="flex items-center justify-between p-6 border-b border-gray-50">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 sm:p-6 border-b border-gray-50">
         {/* Left */}
         <div>
           <h2 className="text-base font-semibold text-gray-800">
@@ -52,23 +52,23 @@ export function TransactionList({
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           {/* Search Input */}
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 w-56">
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 w-full sm:w-64">
             <Search size={14} className="text-gray-400" />
             <input
               type="text"
               placeholder="Search transactions..."
               value={searchTerm}
               onChange={handleSearchChange}
-              className="bg-transparent text-sm outline-none text-gray-600 placeholder-gray-400 w-full"
+              className="bg-transparent text-base sm:text-sm outline-none text-gray-600 placeholder-gray-400 w-full"
             />
           </div>
 
           {/* Filter Dropdown Button */}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 hover:border-gray-300 cursor-pointer"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 hover:border-gray-300 cursor-pointer"
           >
             <SlidersHorizontal size={14} className="text-gray-400" />
             <span>Filter</span>
@@ -78,13 +78,13 @@ export function TransactionList({
 
       {/* Section 2 - Filter Bar */}
       {showFilters && (
-        <div className="flex items-center gap-3 px-6 py-3 border-b border-gray-50 bg-gray-50/50 flex-wrap">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 sm:px-6 py-3 border-b border-gray-50 bg-gray-50/50 flex-wrap">
           {/* Type Filter */}
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             {[
-              { label: 'All', value: undefined },
-              { label: 'Income', value: 'income' as const },
-              { label: 'Expense', value: 'expense' as const },
+              { label: "All", value: undefined },
+              { label: "Income", value: "income" as const },
+              { label: "Expense", value: "expense" as const },
             ].map((filter) => (
               <button
                 key={filter.label}
@@ -92,8 +92,8 @@ export function TransactionList({
                 className={`${
                   (activeType === filter.value && filter.value !== undefined) ||
                   (activeType === undefined && filter.value === undefined)
-                    ? 'bg-white border border-gray-200 shadow-sm text-gray-800'
-                    : 'text-gray-400 hover:text-gray-600'
+                    ? "bg-white border border-gray-200 shadow-sm text-gray-800"
+                    : "text-gray-400 hover:text-gray-600"
                 } text-xs font-medium px-3 py-1.5 rounded-lg transition-colors`}
               >
                 {filter.label}
@@ -104,7 +104,7 @@ export function TransactionList({
           {/* Sort Dropdown */}
           <select
             onChange={handleSortChange}
-            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-500 outline-none bg-white cursor-pointer"
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-500 outline-none bg-white cursor-pointer w-full sm:w-auto"
           >
             <option value="date-newest">Date (Newest)</option>
             <option value="date-oldest">Date (Oldest)</option>
@@ -114,16 +114,16 @@ export function TransactionList({
           </select>
 
           {/* Results Count */}
-          <span className="text-xs text-gray-400 ml-auto">
+          <span className="text-xs text-gray-400 sm:ml-auto">
             Showing {transactions.length} transaction
-            {transactions.length !== 1 ? 's' : ''}
+            {transactions.length !== 1 ? "s" : ""}
           </span>
         </div>
       )}
 
       {/* Section 3 - Transaction Rows */}
       {transactions.length > 0 ? (
-        <div className="max-h-96 overflow-y-auto px-3 divide-y divide-gray-50">
+        <div className="max-h-[60vh] sm:max-h-96 overflow-y-auto px-3 divide-y divide-gray-50">
           {transactions.map((transaction) => (
             <TransactionItem
               key={transaction.id}

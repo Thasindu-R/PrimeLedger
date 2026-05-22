@@ -1,20 +1,26 @@
-import { useState, useMemo } from 'react';
-import { useTransactions } from './hooks/useTransactions';
-import { TopNavBar } from './components/TopNavBar';
-import { PageHeader } from './components/PageHeader';
-import { BalanceCard } from './components/BalanceCard';
-import { StatCard } from './components/StatCard';
-import { StatisticsChart, type MonthlyDataPoint } from './components/StatisticsChart';
-import { AllExpensesPanel } from './components/AllExpensesPanel';
-import { AllIncomePanel } from './components/AllIncomePanel';
-import { PromoBanner } from './components/PromoBanner';
-import { TransactionList } from './components/TransactionList';
-import { TransactionForm, AddTransactionButton } from './components/TransactionForm';
-import { AnalyticsContent } from './components/AnalyticsContent';
-import { TransactionsContent } from './components/TransactionsContent';
-import { SettingsContent } from './components/SettingsContent';
-import { Toast, useToast } from './components/Toast';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { useState, useMemo } from "react";
+import { useTransactions } from "./hooks/useTransactions";
+import { TopNavBar } from "./components/TopNavBar";
+import { PageHeader } from "./components/PageHeader";
+import { BalanceCard } from "./components/BalanceCard";
+import { StatCard } from "./components/StatCard";
+import {
+  StatisticsChart,
+  type MonthlyDataPoint,
+} from "./components/StatisticsChart";
+import { AllExpensesPanel } from "./components/AllExpensesPanel";
+import { AllIncomePanel } from "./components/AllIncomePanel";
+import { PromoBanner } from "./components/PromoBanner";
+import { TransactionList } from "./components/TransactionList";
+import {
+  TransactionForm,
+  AddTransactionButton,
+} from "./components/TransactionForm";
+import { AnalyticsContent } from "./components/AnalyticsContent";
+import { TransactionsContent } from "./components/TransactionsContent";
+import { SettingsContent } from "./components/SettingsContent";
+import { Toast, useToast } from "./components/Toast";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
 interface OverviewContentProps {
   summary: { balance: number; totalIncome: number; totalExpense: number };
@@ -25,7 +31,7 @@ interface OverviewContentProps {
   deleteTransaction: (id: string) => void;
   updateFilters: (filters: any) => void;
   resetFilters: () => void;
-  showToast: (message: string, type: 'success' | 'error' | 'info') => void;
+  showToast: (message: string, type: "success" | "error" | "info") => void;
 }
 
 function OverviewContent({
@@ -42,11 +48,11 @@ function OverviewContent({
   return (
     <>
       {/* Main Grid */}
-      <div className="grid grid-cols-[1fr_320px] gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-start">
         {/* Left Column */}
         <div className="space-y-4">
           {/* Cards Row */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             <BalanceCard
               balance={summary.balance}
               changePercent={6.7}
@@ -80,7 +86,7 @@ function OverviewContent({
         </div>
 
         {/* Right Column */}
-        <div className="space-y-4">
+        <div className="space-y-4 lg:pt-0">
           <AllIncomePanel
             daily={summary.totalIncome / 30}
             weekly={summary.totalIncome / 4}
@@ -97,7 +103,7 @@ function OverviewContent({
             headline="Secure Your Future with Smart Budgeting"
             subtitle="Track every rupee. Build better habits. Reach your financial goals faster."
             ctaLabel="Learn more"
-            onCtaClick={() => showToast('This feature is coming soon!', 'info')}
+            onCtaClick={() => showToast("This feature is coming soon!", "info")}
           />
         </div>
       </div>
@@ -107,8 +113,10 @@ function OverviewContent({
         transactions={sortedTransactions}
         onDelete={deleteTransaction}
         onSearchChange={(term) => updateFilters({ search: term })}
-        onTypeFilter={(type) => (type ? updateFilters({ type }) : resetFilters())}
-        onSortChange={(val) => console.log('sort:', val)}
+        onTypeFilter={(type) =>
+          type ? updateFilters({ type }) : resetFilters()
+        }
+        onSortChange={(val) => console.log("sort:", val)}
       />
     </>
   );
@@ -124,7 +132,7 @@ interface TabContentProps {
   deleteTransaction: (id: string) => void;
   updateFilters: (filters: any) => void;
   resetFilters: () => void;
-  showToast: (message: string, type: 'success' | 'error' | 'info') => void;
+  showToast: (message: string, type: "success" | "error" | "info") => void;
   transactions: any[];
   filters: any;
   sort: any;
@@ -153,7 +161,7 @@ function TabContent({
   onUserNameChange,
   onClearAll,
 }: TabContentProps) {
-  if (activeTab === 'Overview') {
+  if (activeTab === "Overview") {
     return (
       <OverviewContent
         summary={summary}
@@ -168,7 +176,7 @@ function TabContent({
       />
     );
   }
-  if (activeTab === 'Analytics') {
+  if (activeTab === "Analytics") {
     return (
       <AnalyticsContent
         transactions={transactions}
@@ -178,7 +186,7 @@ function TabContent({
       />
     );
   }
-  if (activeTab === 'Transactions') {
+  if (activeTab === "Transactions") {
     return (
       <TransactionsContent
         onDelete={deleteTransaction}
@@ -191,7 +199,7 @@ function TabContent({
       />
     );
   }
-  if (activeTab === 'Settings') {
+  if (activeTab === "Settings") {
     return (
       <SettingsContent
         userName={userName}
@@ -205,9 +213,9 @@ function TabContent({
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [activeTab, setActiveTab] = useState("Overview");
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [userName, setUserName] = useState('Thasindu');
+  const [userName, setUserName] = useState("Thasindu");
   const { toasts, showToast, removeToast } = useToast();
 
   const {
@@ -227,30 +235,49 @@ export default function App() {
   } = useTransactions();
 
   const monthlyChartData: MonthlyDataPoint[] = useMemo(() => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
     return months.map((month, i) => {
-      const monthTransactions = transactions.filter((t) => new Date(t.date).getMonth() === i);
+      const monthTransactions = transactions.filter(
+        (t) => new Date(t.date).getMonth() === i,
+      );
       return {
         month,
-        income: monthTransactions.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0),
-        expense: monthTransactions.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0),
+        income: monthTransactions
+          .filter((t) => t.type === "income")
+          .reduce((s, t) => s + t.amount, 0),
+        expense: monthTransactions
+          .filter((t) => t.type === "expense")
+          .reduce((s, t) => s + t.amount, 0),
       };
     });
   }, [transactions]);
 
   const handleAddTransaction = (data: any) => {
     addTransaction(data);
-    showToast('Transaction added!', 'success');
+    showToast("Transaction added!", "success");
   };
 
   const handleDeleteTransaction = (id: string) => {
     deleteTransaction(id);
-    showToast('Transaction deleted.', 'info');
+    showToast("Transaction deleted.", "info");
   };
 
   const handleClearAll = () => {
     clearAll();
-    showToast('All data cleared.', 'error');
+    showToast("All data cleared.", "error");
   };
 
   const handleNavigate = (tab: string) => {
@@ -259,11 +286,11 @@ export default function App() {
 
   const handleUserNameChange = (name: string) => {
     setUserName(name);
-    showToast('Display name updated.', 'success');
+    showToast("Display name updated.", "success");
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <TopNavBar
         userName={userName}
         userHandle="@thasindu"
@@ -277,7 +304,7 @@ export default function App() {
         rightSlot={<AddTransactionButton onClick={() => setIsFormOpen(true)} />}
       />
 
-      <div className="max-w-screen-xl mx-auto px-6 py-6 space-y-4 transition-all duration-200">
+      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 transition-all duration-200">
         <TabContent
           activeTab={activeTab}
           summary={summary}
