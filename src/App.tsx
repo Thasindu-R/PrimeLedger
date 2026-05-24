@@ -1,43 +1,44 @@
-import { useState, useMemo } from "react";
-import { useTransactions } from "./hooks/useTransactions";
-import { TopNavBar } from "./components/TopNavBar";
-import { PageHeader } from "./components/PageHeader";
-import { BalanceCard } from "./components/BalanceCard";
-import { StatCard } from "./components/StatCard";
+import { useState, useMemo } from 'react';
+import { useTransactions } from './hooks/useTransactions';
+import { TopNavBar } from './components/TopNavBar';
+import { PageHeader } from './components/PageHeader';
+import { BalanceCard } from './components/BalanceCard';
+import { StatCard } from './components/StatCard';
 import {
   StatisticsChart,
   type MonthlyDataPoint,
-} from "./components/StatisticsChart";
-import { AllExpensesPanel } from "./components/AllExpensesPanel";
-import { AllIncomePanel } from "./components/AllIncomePanel";
-import { PromoBanner } from "./components/PromoBanner";
-import { TransactionList } from "./components/TransactionList";
+} from './components/StatisticsChart';
+import { AllExpensesPanel } from './components/AllExpensesPanel';
+import { PromoBanner } from './components/PromoBanner';
+import { TransactionList } from './components/TransactionList';
 import {
   TransactionForm,
   AddTransactionButton,
-} from "./components/TransactionForm";
-import { AnalyticsContent } from "./components/AnalyticsContent";
-import { TransactionsContent } from "./components/TransactionsContent";
-import { SettingsContent } from "./components/SettingsContent";
-import { Toast, useToast } from "./components/Toast";
-import { TrendingUp, TrendingDown } from "lucide-react";
+} from './components/TransactionForm';
+import { AnalyticsContent } from './components/AnalyticsContent';
+import { TransactionsContent } from './components/TransactionsContent';
+import { SettingsContent } from './components/SettingsContent';
+import { Toast, useToast } from './components/Toast';
+import { TrendingUp, TrendingDown } from 'lucide-react';
+import type { Transaction } from './types';
+import type { Summary } from './types';
+import type { CategoryBreakdown } from './hooks/useTransactions';
+import type { TransactionFilters, SortConfig } from './hooks/useTransactions';
 
 interface OverviewContentProps {
-  summary: { balance: number; totalIncome: number; totalExpense: number };
-  expenseByCategory: any;
-  incomeByCategory: any;
+  summary: Summary;
+  transactions: Transaction[];
   monthlyChartData: MonthlyDataPoint[];
-  sortedTransactions: any[];
+  sortedTransactions: Transaction[];
   deleteTransaction: (id: string) => void;
-  updateFilters: (filters: any) => void;
+  updateFilters: (filters: Partial<TransactionFilters>) => void;
   resetFilters: () => void;
-  showToast: (message: string, type: "success" | "error" | "info") => void;
+  showToast: (message: string, type: 'success' | 'error' | 'info') => void;
 }
 
 function OverviewContent({
   summary,
-  expenseByCategory,
-  incomeByCategory,
+  transactions,
   monthlyChartData,
   sortedTransactions,
   deleteTransaction,
@@ -85,25 +86,14 @@ function OverviewContent({
           />
         </div>
 
-        {/* Right Column */}
-        <div className="space-y-4 lg:pt-0">
-          <AllIncomePanel
-            daily={summary.totalIncome / 30}
-            weekly={summary.totalIncome / 4}
-            monthly={summary.totalIncome}
-            categories={incomeByCategory}
-          />
-          <AllExpensesPanel
-            daily={summary.totalExpense / 30}
-            weekly={summary.totalExpense / 4}
-            monthly={summary.totalExpense}
-            categories={expenseByCategory}
-          />
+        {/* Right column */}
+        <div className="space-y-4">
+          <AllExpensesPanel transactions={transactions} />
           <PromoBanner
             headline="Secure Your Future with Smart Budgeting"
-            subtitle="Track every rupee. Build better habits. Reach your financial goals faster."
+            subtitle="Track every rupee. Build better habits. Reach your goals faster."
             ctaLabel="Learn more"
-            onCtaClick={() => showToast("This feature is coming soon!", "info")}
+            onCtaClick={() => showToast('This feature is coming soon!', 'info')}
           />
         </div>
       </div>
@@ -116,7 +106,7 @@ function OverviewContent({
         onTypeFilter={(type) =>
           type ? updateFilters({ type }) : resetFilters()
         }
-        onSortChange={(val) => console.log("sort:", val)}
+        onSortChange={(val) => console.log('sort:', val)}
       />
     </>
   );
@@ -124,19 +114,19 @@ function OverviewContent({
 
 interface TabContentProps {
   activeTab: string;
-  summary: { balance: number; totalIncome: number; totalExpense: number };
-  expenseByCategory: any;
-  incomeByCategory: any;
+  summary: Summary;
+  expenseByCategory: CategoryBreakdown[];
+  incomeByCategory: CategoryBreakdown[];
   monthlyChartData: MonthlyDataPoint[];
-  sortedTransactions: any[];
+  sortedTransactions: Transaction[];
   deleteTransaction: (id: string) => void;
-  updateFilters: (filters: any) => void;
+  updateFilters: (filters: Partial<TransactionFilters>) => void;
   resetFilters: () => void;
-  showToast: (message: string, type: "success" | "error" | "info") => void;
-  transactions: any[];
-  filters: any;
-  sort: any;
-  updateSort: (field: any) => void;
+  showToast: (message: string, type: 'success' | 'error' | 'info') => void;
+  transactions: Transaction[];
+  filters: TransactionFilters;
+  sort: SortConfig;
+  updateSort: (field: SortConfig['field']) => void;
   userName: string;
   onUserNameChange: (name: string) => void;
   onClearAll: () => void;
@@ -161,12 +151,11 @@ function TabContent({
   onUserNameChange,
   onClearAll,
 }: TabContentProps) {
-  if (activeTab === "Overview") {
+  if (activeTab === 'Overview') {
     return (
       <OverviewContent
         summary={summary}
-        expenseByCategory={expenseByCategory}
-        incomeByCategory={incomeByCategory}
+        transactions={transactions}
         monthlyChartData={monthlyChartData}
         sortedTransactions={sortedTransactions}
         deleteTransaction={deleteTransaction}
@@ -176,7 +165,7 @@ function TabContent({
       />
     );
   }
-  if (activeTab === "Analytics") {
+  if (activeTab === 'Analytics') {
     return (
       <AnalyticsContent
         transactions={transactions}
@@ -186,7 +175,7 @@ function TabContent({
       />
     );
   }
-  if (activeTab === "Transactions") {
+  if (activeTab === 'Transactions') {
     return (
       <TransactionsContent
         onDelete={deleteTransaction}
@@ -199,7 +188,7 @@ function TabContent({
       />
     );
   }
-  if (activeTab === "Settings") {
+  if (activeTab === 'Settings') {
     return (
       <SettingsContent
         userName={userName}
@@ -213,9 +202,9 @@ function TabContent({
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("Overview");
+  const [activeTab, setActiveTab] = useState('Overview');
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [userName, setUserName] = useState("Thasindu");
+  const [userName, setUserName] = useState('Thasindu');
   const { toasts, showToast, removeToast } = useToast();
 
   const {
@@ -236,18 +225,18 @@ export default function App() {
 
   const monthlyChartData: MonthlyDataPoint[] = useMemo(() => {
     const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return months.map((month, i) => {
       const monthTransactions = transactions.filter(
@@ -256,28 +245,28 @@ export default function App() {
       return {
         month,
         income: monthTransactions
-          .filter((t) => t.type === "income")
+          .filter((t) => t.type === 'income')
           .reduce((s, t) => s + t.amount, 0),
         expense: monthTransactions
-          .filter((t) => t.type === "expense")
+          .filter((t) => t.type === 'expense')
           .reduce((s, t) => s + t.amount, 0),
       };
     });
   }, [transactions]);
 
-  const handleAddTransaction = (data: any) => {
+  const handleAddTransaction = (data: Omit<Transaction, 'id'>) => {
     addTransaction(data);
-    showToast("Transaction added!", "success");
+    showToast('Transaction added!', 'success');
   };
 
   const handleDeleteTransaction = (id: string) => {
     deleteTransaction(id);
-    showToast("Transaction deleted.", "info");
+    showToast('Transaction deleted.', 'info');
   };
 
   const handleClearAll = () => {
     clearAll();
-    showToast("All data cleared.", "error");
+    showToast('All data cleared.', 'error');
   };
 
   const handleNavigate = (tab: string) => {
@@ -286,7 +275,7 @@ export default function App() {
 
   const handleUserNameChange = (name: string) => {
     setUserName(name);
-    showToast("Display name updated.", "success");
+    showToast('Display name updated.', 'success');
   };
 
   return (

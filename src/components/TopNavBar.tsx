@@ -231,6 +231,7 @@ export function TopNavBar({ userName, userHandle, avatarUrl, onNavigate, recentT
             </div>
           )}
         </div>
+        </div>
       </div>
 
       {showMobileMenu && (

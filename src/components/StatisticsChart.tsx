@@ -6,9 +6,13 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-} from "recharts";
-import { Calendar, TrendingUp } from "lucide-react";
-import { formatCurrencyParts, formatCurrency } from "../utils/formatCurrency";
+} from 'recharts';
+import { Calendar, TrendingUp, BarChart2 } from 'lucide-react';
+import {
+  formatCurrencyParts,
+  formatCurrency,
+  formatChartAxis,
+} from '../utils/formatCurrency';
 
 export interface MonthlyDataPoint {
   month: string;
@@ -23,6 +27,21 @@ interface StatisticsChartProps {
   avgIncomeChange: number;
   avgExpenseChange: number;
 }
+
+const MOCK_DATA: MonthlyDataPoint[] = [
+  { month: 'Jan', income: 52000, expense: 38000 },
+  { month: 'Feb', income: 48000, expense: 41000 },
+  { month: 'Mar', income: 55000, expense: 36000 },
+  { month: 'Apr', income: 61000, expense: 42000 },
+  { month: 'May', income: 58000, expense: 39000 },
+  { month: 'Jun', income: 64000, expense: 45000 },
+  { month: 'Jul', income: 59000, expense: 40000 },
+  { month: 'Aug', income: 67000, expense: 44000 },
+  { month: 'Sep', income: 62000, expense: 37000 },
+  { month: 'Oct', income: 70000, expense: 48000 },
+  { month: 'Nov', income: 66000, expense: 43000 },
+  { month: 'Dec', income: 72000, expense: 50000 },
+];
 
 function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
@@ -47,6 +66,13 @@ export function StatisticsChart({
 }: StatisticsChartProps) {
   const avgIncomeFormatted = formatCurrencyParts(avgIncome);
   const avgExpenseFormatted = formatCurrencyParts(avgExpense);
+
+  const isMockFallback = data.length === 0;
+  const chartData = isMockFallback ? MOCK_DATA : data;
+  const activeMonths = data.filter(
+    (d) => d.income > 0 || d.expense > 0,
+  ).length;
+  const hasEnoughData = activeMonths >= 2;
 
   return (
     <div className="w-full bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
@@ -76,76 +102,89 @@ export function StatisticsChart({
 
       {/* Section 2 - Recharts AreaChart */}
       <div className="h-64 sm:h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={data}
-            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-            syncId="stats"
-          >
-            <defs>
-              <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.15} />
-                <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#fb923c" stopOpacity={0.15} />
-                <stop offset="100%" stopColor="#fb923c" stopOpacity={0} />
-              </linearGradient>
-            </defs>
+        {!hasEnoughData && !isMockFallback ? (
+          <div className="h-64 flex flex-col items-center justify-center text-gray-300 gap-2">
+            <BarChart2 size={40} strokeWidth={1.5} />
+            <p className="text-sm font-medium">
+              Not enough data to show trends
+            </p>
+            <p className="text-xs">
+              Add transactions across multiple months to see your income and
+              expense trends here
+            </p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+              syncId="stats"
+            >
+              <defs>
+                <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#22c55e" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#fb923c" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="#fb923c" stopOpacity={0} />
+                </linearGradient>
+              </defs>
 
-            <XAxis
-              dataKey="month"
-              tick={{ fontSize: 12, fill: "#9ca3af" }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <YAxis
-              yAxisId="left"
-              tick={{ fontSize: 12, fill: "#9ca3af" }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v) => `Rs. ${(v / 1000).toFixed(0)}k`}
-            />
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              tick={{ fontSize: 12, fill: "#9ca3af" }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v) => `Rs. ${(v / 1000).toFixed(0)}k`}
-              hide={true}
-            />
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="#f3f4f6"
-              vertical={false}
-            />
-            <Tooltip content={<CustomTooltip />} />
+              <XAxis
+                dataKey="month"
+                tick={{ fontSize: 12, fill: '#9ca3af' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                yAxisId="left"
+                tick={{ fontSize: 12, fill: '#9ca3af' }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={formatChartAxis}
+              />
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                tick={{ fontSize: 12, fill: '#9ca3af' }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={formatChartAxis}
+                hide={true}
+              />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#f3f4f6"
+                vertical={false}
+              />
+              <Tooltip content={<CustomTooltip />} />
 
-            <Area
-              yAxisId="left"
-              type="monotone"
-              dataKey="income"
-              name="Income"
-              stroke="#22c55e"
-              strokeWidth={2.5}
-              fill="url(#incomeGradient)"
-              dot={false}
-              activeDot={{ r: 5, fill: "#22c55e", strokeWidth: 0 }}
-            />
-            <Area
-              yAxisId="right"
-              type="monotone"
-              dataKey="expense"
-              name="Expenses"
-              stroke="#fb923c"
-              strokeWidth={2.5}
-              fill="url(#expenseGradient)"
-              dot={false}
-              activeDot={{ r: 5, fill: "#fb923c", strokeWidth: 0 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+              <Area
+                yAxisId="left"
+                type="monotone"
+                dataKey="income"
+                name="Income"
+                stroke="#22c55e"
+                strokeWidth={2.5}
+                fill="url(#incomeGradient)"
+                dot={false}
+                activeDot={{ r: 5, fill: '#22c55e', strokeWidth: 0 }}
+              />
+              <Area
+                yAxisId="right"
+                type="monotone"
+                dataKey="expense"
+                name="Expenses"
+                stroke="#fb923c"
+                strokeWidth={2.5}
+                fill="url(#expenseGradient)"
+                dot={false}
+                activeDot={{ r: 5, fill: '#fb923c', strokeWidth: 0 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Section 3 - Average Summary Row */}

@@ -41,11 +41,11 @@ export function AllIncomePanel({
 
   if (displayCategories.length === 0) {
     return (
-      <div className="w-full bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+      <div className="w-full bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
         <h2 className="text-base font-semibold text-gray-800 mb-4">
           All income
         </h2>
-        <div className="flex flex-col items-center justify-center h-48 text-gray-300">
+        <div className="flex flex-col items-center justify-center h-46 text-gray-300">
           <PieChartIcon size={32} />
           <p className="text-sm mt-2">No income data yet</p>
         </div>
@@ -54,12 +54,12 @@ export function AllIncomePanel({
   }
 
   return (
-    <div className="w-full bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+    <div className="w-full bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
       {/* Section 1 - Card Header */}
-      <h2 className="text-base font-semibold text-gray-800 mb-4">All income</h2>
+      <h2 className="text-base font-semibold text-gray-800 mb-3">All income</h2>
 
       {/* Section 2 - Period Tab Bar */}
-      <div className="grid grid-cols-3 gap-1 bg-gray-50 rounded-xl p-1 mb-6">
+      <div className="grid grid-cols-3 gap-1 bg-gray-50 rounded-xl p-1 mb-3">
         {[
           { key: "daily" as const, label: "Daily", value: daily },
           { key: "weekly" as const, label: "Weekly", value: weekly },
@@ -72,7 +72,7 @@ export function AllIncomePanel({
               activePeriod === period.key
                 ? 'bg-white rounded-lg shadow-sm text-gray-800'
                 : 'text-gray-400 hover:text-gray-600'
-            } py-2 px-2 sm:px-3 w-full text-center transition-all`}
+            } py-1.5 px-2 sm:px-3 w-full text-center transition-all`}
           >
             <div className="text-xs font-medium">{period.label}</div>
             <div
@@ -136,8 +136,8 @@ export function AllIncomePanel({
       </div>
 
       {/* Section 4 - Category Legend List */}
-      <div className="space-y-3 mt-4">
-        {displayCategories.slice(0, 5).map((category, index) => {
+      <div className="space-y-2 mt-2">
+        {displayCategories.slice(0, 4).map((category, index) => {
           const color = RING_COLORS[index % RING_COLORS.length];
           const percentage = Math.round(category.percentage);
 

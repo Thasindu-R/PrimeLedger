@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo } from 'react';
 import {
   BarChart,
   Bar,
@@ -8,11 +8,12 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-} from "recharts";
-import { Hash, TrendingDown, PiggyBank } from "lucide-react";
-import { formatCurrency } from "../utils/formatCurrency";
-import type { CategoryBreakdown } from "./AllExpensesPanel";
-import type { Transaction, Summary } from "../types";
+  LabelList,
+} from 'recharts';
+import { Hash, TrendingDown, PiggyBank } from 'lucide-react';
+import { formatCurrency, formatChartAxis } from '../utils/formatCurrency';
+import type { CategoryBreakdown } from './AllExpensesPanel';
+import type { Transaction, Summary } from '../types';
 
 interface AnalyticsContentProps {
   transactions: Transaction[];
@@ -28,43 +29,43 @@ export function AnalyticsContent({
   incomeByCategory,
 }: AnalyticsContentProps) {
   const highestExpense = useMemo(() => {
-    const expenses = transactions.filter((t) => t.type === "expense");
+    const expenses = transactions.filter((t) => t.type === 'expense');
     if (expenses.length === 0) return 0;
     return Math.max(...expenses.map((t) => t.amount));
   }, [transactions]);
 
   const savingsRate = useMemo(() => {
-    if (summary.totalIncome === 0) return "N/A";
+    if (summary.totalIncome === 0) return 'N/A';
     const rate =
       ((summary.totalIncome - summary.totalExpense) / summary.totalIncome) *
       100;
-    return rate.toFixed(1) + "%";
+    return rate.toFixed(1) + '%';
   }, [summary.totalIncome, summary.totalExpense]);
 
   const monthlyNetData = useMemo(() => {
     const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return months.map((month, i) => {
       const monthTransactions = transactions.filter(
         (t) => new Date(t.date).getMonth() === i,
       );
       const income = monthTransactions
-        .filter((t) => t.type === "income")
+        .filter((t) => t.type === 'income')
         .reduce((s, t) => s + t.amount, 0);
       const expense = monthTransactions
-        .filter((t) => t.type === "expense")
+        .filter((t) => t.type === 'expense')
         .reduce((s, t) => s + t.amount, 0);
       return {
         month,
@@ -76,7 +77,7 @@ export function AnalyticsContent({
   }, [transactions]);
 
   const getNetBarColor = (value: number) =>
-    value >= 0 ? "#22c55e" : "#ef4444";
+    value >= 0 ? '#22c55e' : '#ef4444';
 
   function CategoryTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
@@ -151,33 +152,41 @@ export function AnalyticsContent({
           <h3 className="text-base font-semibold text-gray-800 mb-4">
             Income by Category
           </h3>
-          <div className="h-56 sm:h-60">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={incomeByCategory}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <XAxis type="number" hide />
-                <YAxis
-                  type="category"
-                  dataKey="category"
-                  tick={{ fontSize: 12, fill: "#9ca3af" }}
-                  width={80}
-                  axisLine={false}
-                  tickLine={false}
+          <ResponsiveContainer
+            width="100%"
+            height={Math.max(180, incomeByCategory.length * 52)}
+          >
+            <BarChart
+              data={incomeByCategory}
+              layout="vertical"
+              margin={{ top: 5, right: 80, left: 20, bottom: 5 }}
+            >
+              <XAxis type="number" hide />
+              <YAxis
+                type="category"
+                dataKey="category"
+                tick={{ fontSize: 12, fill: '#9ca3af' }}
+                width={80}
+                axisLine={false}
+                tickLine={false}
+              />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#f3f4f6"
+                horizontal={true}
+                vertical={false}
+              />
+              <Tooltip content={<CategoryTooltip />} />
+              <Bar dataKey="total" fill="#22c55e" radius={[0, 6, 6, 0]}>
+                <LabelList
+                  dataKey="total"
+                  position="right"
+                  formatter={(v: number) => formatCurrency(v)}
+                  style={{ fontSize: 11, fill: '#6b7280' }}
                 />
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#f3f4f6"
-                  horizontal={true}
-                  vertical={false}
-                />
-                <Tooltip content={<CategoryTooltip />} />
-                <Bar dataKey="total" fill="#22c55e" radius={[0, 6, 6, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Expenses by Category */}
@@ -185,33 +194,41 @@ export function AnalyticsContent({
           <h3 className="text-base font-semibold text-gray-800 mb-4">
             Expenses by Category
           </h3>
-          <div className="h-56 sm:h-60">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={expenseByCategory}
-                layout="vertical"
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-              >
-                <XAxis type="number" hide />
-                <YAxis
-                  type="category"
-                  dataKey="category"
-                  tick={{ fontSize: 12, fill: "#9ca3af" }}
-                  width={80}
-                  axisLine={false}
-                  tickLine={false}
+          <ResponsiveContainer
+            width="100%"
+            height={Math.max(180, expenseByCategory.length * 52)}
+          >
+            <BarChart
+              data={expenseByCategory}
+              layout="vertical"
+              margin={{ top: 5, right: 80, left: 20, bottom: 5 }}
+            >
+              <XAxis type="number" hide />
+              <YAxis
+                type="category"
+                dataKey="category"
+                tick={{ fontSize: 12, fill: '#9ca3af' }}
+                width={80}
+                axisLine={false}
+                tickLine={false}
+              />
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#f3f4f6"
+                horizontal={true}
+                vertical={false}
+              />
+              <Tooltip content={<CategoryTooltip />} />
+              <Bar dataKey="total" fill="#ef4444" radius={[0, 6, 6, 0]}>
+                <LabelList
+                  dataKey="total"
+                  position="right"
+                  formatter={(v: number) => formatCurrency(v)}
+                  style={{ fontSize: 11, fill: '#6b7280' }}
                 />
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#f3f4f6"
-                  horizontal={true}
-                  vertical={false}
-                />
-                <Tooltip content={<CategoryTooltip />} />
-                <Bar dataKey="total" fill="#ef4444" radius={[0, 6, 6, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
@@ -233,15 +250,15 @@ export function AnalyticsContent({
             >
               <XAxis
                 dataKey="month"
-                tick={{ fontSize: 12, fill: "#9ca3af" }}
+                tick={{ fontSize: 12, fill: '#9ca3af' }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                tick={{ fontSize: 12, fill: "#9ca3af" }}
+                tick={{ fontSize: 12, fill: '#9ca3af' }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v) => formatCurrency(v)}
+                tickFormatter={formatChartAxis}
               />
               <CartesianGrid
                 strokeDasharray="3 3"

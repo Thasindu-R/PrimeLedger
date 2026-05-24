@@ -20,6 +20,13 @@ export function formatCurrencyParts(amount: number): { whole: string; decimal: s
   };
 }
 
+export function formatChartAxis(value: number): string {
+  if (value >= 100000) return `Rs. ${(value / 100000).toFixed(1)}L`;
+  if (value >= 1000) return `Rs. ${(value / 1000).toFixed(0)}k`;
+  if (value === 0) return `Rs. 0`;
+  return `Rs. ${value}`;
+}
+
 export function formatDate(dateStr: string): string {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-GB', {
     day: 'numeric',
