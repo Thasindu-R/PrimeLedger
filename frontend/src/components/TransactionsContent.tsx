@@ -2,10 +2,12 @@ import {
   Download,
   ChevronUp,
   ChevronDown,
+  Pencil,
   Receipt,
   Trash2,
 } from "lucide-react";
 import { formatCurrency, formatDate } from "../utils/formatCurrency";
+import { downloadCsv, exportFilename, transactionsToCsv } from "../utils/csv";
 import type { Transaction } from "../types";
 import type {
   TransactionFilters,
@@ -15,6 +17,7 @@ import type {
 
 interface TransactionsContentProps {
   onDelete: (id: string) => void;
+  onEdit: (transaction: Transaction) => void;
   updateFilters: (patch: Partial<TransactionFilters>) => void;
   resetFilters: () => void;
   filters: TransactionFilters;
@@ -23,27 +26,9 @@ interface TransactionsContentProps {
   updateSort: (field: SortField) => void;
 }
 
-function exportToCSV(transactions: Transaction[]) {
-  const headers = ["Date", "Description", "Category", "Type", "Amount"];
-  const rows = transactions.map((t) => [
-    t.date,
-    t.description || "",
-    t.category,
-    t.type,
-    t.amount.toString(),
-  ]);
-  const csv = [headers, ...rows].map((r) => r.join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `transactions_${new Date().toISOString().split("T")[0]}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 export function TransactionsContent({
   onDelete,
+  onEdit,
   updateFilters,
   resetFilters,
   filters,
@@ -52,7 +37,8 @@ export function TransactionsContent({
   updateSort,
 }: TransactionsContentProps) {
   const handleExport = () => {
-    exportToCSV(sortedTransactions);
+    // The export honours the filters and sort currently on screen.
+    downloadCsv(transactionsToCsv(sortedTransactions), exportFilename());
   };
 
   const handleSort = (field: SortField) => {
@@ -231,13 +217,24 @@ export function TransactionsContent({
                       {transaction.type}
                     </span>
                   </div>
-                  <button
-                    onClick={() => onDelete(transaction.id)}
-                    className="mt-3 w-full flex items-center justify-center gap-2 border border-red-200 text-red-600 py-2 rounded-lg text-sm hover:bg-red-50"
-                  >
-                    <Trash2 size={16} />
-                    Delete
-                  </button>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => onEdit(transaction)}
+                      aria-label={`Edit ${transaction.description || transaction.category}`}
+                      className="flex-1 flex items-center justify-center gap-2 border border-gray-200 text-gray-600 py-2 rounded-lg text-sm hover:bg-gray-50"
+                    >
+                      <Pencil size={16} />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => onDelete(transaction.id)}
+                      aria-label={`Delete ${transaction.description || transaction.category}`}
+                      className="flex-1 flex items-center justify-center gap-2 border border-red-200 text-red-600 py-2 rounded-lg text-sm hover:bg-red-50"
+                    >
+                      <Trash2 size={16} />
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -262,7 +259,7 @@ export function TransactionsContent({
                       Amount
                     </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Action
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -306,12 +303,22 @@ export function TransactionsContent({
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-sm text-right">
-                        <button
-                          onClick={() => onDelete(transaction.id)}
-                          className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => onEdit(transaction)}
+                            aria-label={`Edit ${transaction.description || transaction.category}`}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-300 hover:text-gray-500 transition-colors"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={() => onDelete(transaction.id)}
+                            aria-label={`Delete ${transaction.description || transaction.category}`}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

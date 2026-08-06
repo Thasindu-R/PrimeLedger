@@ -4,7 +4,8 @@ import { formatCurrencyParts } from '../utils/formatCurrency';
 interface StatCardProps {
   label: string;
   amount: number;
-  changePercent: number;
+  /** Real month-over-month change, or null when there is no prior month (D-05). */
+  changePercent: number | null;
   variant: 'income' | 'expense';
   icon: React.ReactNode;
 }
@@ -17,7 +18,7 @@ export function StatCard({
   icon,
 }: StatCardProps) {
   const { whole, decimal } = formatCurrencyParts(amount);
-  const isPositive = changePercent >= 0;
+  const isPositive = (changePercent ?? 0) >= 0;
 
   return (
     <div className="w-full bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
@@ -48,19 +49,25 @@ export function StatCard({
 
       {/* Section 4 - Percentage Change */}
       <div className="flex items-center gap-1 mt-2">
-        {isPositive ? (
-          <TrendingUp size={13} className="text-green-500" />
+        {changePercent === null ? (
+          <span className="text-xs text-gray-400">No prior month to compare</span>
         ) : (
-          <TrendingDown size={13} className="text-red-500" />
+          <>
+            {isPositive ? (
+              <TrendingUp size={13} className="text-green-500" />
+            ) : (
+              <TrendingDown size={13} className="text-red-500" />
+            )}
+            <span
+              className={`text-xs ${
+                isPositive ? 'text-green-500' : 'text-red-500'
+              }`}
+            >
+              {isPositive ? '+' : ''}
+              {changePercent}% compared to last month
+            </span>
+          </>
         )}
-        <span
-          className={`text-xs ${
-            isPositive ? 'text-green-500' : 'text-red-500'
-          }`}
-        >
-          {isPositive ? '+' : ''}
-          {changePercent}% compared to last month
-        </span>
       </div>
     </div>
   );

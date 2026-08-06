@@ -1,27 +1,53 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Search, SlidersHorizontal, Receipt } from "lucide-react";
 import type { Transaction } from "../types";
+import type { SortConfig } from "../hooks/useTransactions";
 import { TransactionItem } from "./TransactionItem";
 
 interface TransactionListProps {
   transactions: Transaction[];
   onDelete: (id: string) => void;
+  onEdit: (transaction: Transaction) => void;
   onSearchChange: (term: string) => void;
   onTypeFilter: (type: "income" | "expense" | undefined) => void;
-  onSortChange: (value: string) => void;
+  onSortChange: (sort: SortConfig) => void;
+  sort: SortConfig;
   activeType?: "income" | "expense";
+}
+
+/**
+ * The dropdown picks a field and a direction together, so it cannot go through
+ * `updateSort`, which only toggles. Mapping here keeps the option values as the
+ * single place the two vocabularies meet (D-04).
+ */
+const SORT_OPTIONS: { value: string; label: string; sort: SortConfig }[] = [
+  { value: "date-newest", label: "Date (Newest)", sort: { field: "date", order: "desc" } },
+  { value: "date-oldest", label: "Date (Oldest)", sort: { field: "date", order: "asc" } },
+  { value: "amount-high", label: "Amount (High)", sort: { field: "amount", order: "desc" } },
+  { value: "amount-low", label: "Amount (Low)", sort: { field: "amount", order: "asc" } },
+  { value: "category", label: "Category", sort: { field: "category", order: "asc" } },
+];
+
+function optionValueFor(sort: SortConfig): string {
+  const match = SORT_OPTIONS.find(
+    (option) => option.sort.field === sort.field && option.sort.order === sort.order,
+  );
+  return match?.value ?? "date-newest";
 }
 
 export function TransactionList({
   transactions,
   onDelete,
+  onEdit,
   onSearchChange,
   onTypeFilter,
   onSortChange,
+  sort,
   activeType,
 }: TransactionListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const sortId = useId();
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -34,7 +60,8 @@ export function TransactionList({
   };
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onSortChange(e.target.value);
+    const option = SORT_OPTIONS.find((o) => o.value === e.target.value);
+    if (option) onSortChange(option.sort);
   };
 
   return (
@@ -58,6 +85,7 @@ export function TransactionList({
             <Search size={14} className="text-gray-400" />
             <input
               type="text"
+              aria-label="Search transactions"
               placeholder="Search transactions..."
               value={searchTerm}
               onChange={handleSearchChange}
@@ -68,6 +96,7 @@ export function TransactionList({
           {/* Filter Dropdown Button */}
           <button
             onClick={() => setShowFilters(!showFilters)}
+            aria-expanded={showFilters}
             className="w-full sm:w-auto flex items-center justify-center gap-2 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-500 hover:border-gray-300 cursor-pointer"
           >
             <SlidersHorizontal size={14} className="text-gray-400" />
@@ -102,15 +131,20 @@ export function TransactionList({
           </div>
 
           {/* Sort Dropdown */}
+          <label htmlFor={sortId} className="sr-only">
+            Sort by
+          </label>
           <select
+            id={sortId}
+            value={optionValueFor(sort)}
             onChange={handleSortChange}
             className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-500 outline-none bg-white cursor-pointer w-full sm:w-auto"
           >
-            <option value="date-newest">Date (Newest)</option>
-            <option value="date-oldest">Date (Oldest)</option>
-            <option value="amount-high">Amount (High)</option>
-            <option value="amount-low">Amount (Low)</option>
-            <option value="category">Category</option>
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
 
           {/* Results Count */}
@@ -129,6 +163,7 @@ export function TransactionList({
               key={transaction.id}
               transaction={transaction}
               onDelete={onDelete}
+              onEdit={onEdit}
             />
           ))}
         </div>

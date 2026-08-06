@@ -15,13 +15,16 @@ A personal finance management web app built with **React** and **TypeScript**. L
 
 ## ✨ Features
 
-- **Add & delete transactions** — log income or expenses with description, amount, category, and date
+- **Add, edit & delete transactions** — log income or expenses with description, amount, category, and date
 - **Live balance** — running total updates instantly as you add or remove entries
-- **Category tracking** — organize transactions across 11 predefined categories
-- **Visual charts** — bar chart (income vs expense) and pie chart (spending by category) powered by Recharts
+- **Real period comparison** — month-over-month deltas computed from your data, or an honest "no prior month" when there is nothing to compare
+- **Category tracking** — 13 categories, derived from the type system so the form and the types can never drift apart
+- **Visual charts** — income/expense trend and category breakdowns powered by Recharts, bucketed by `YYYY-MM`
 - **Filter & sort** — filter by type, category, date range, amount range, or keyword search
+- **Bookmarkable routes** — `/overview`, `/analytics`, `/transactions`, `/settings` are real URLs with working browser history
 - **Persistent storage** — all data saved to `localStorage`; survives page refresh with no login required
 - **Fully typed** — end-to-end TypeScript with strict interfaces and union types
+- **Tested** — Vitest + React Testing Library, with a regression test behind every fixed defect
 
 ---
 
@@ -130,12 +133,19 @@ Open [http://localhost:8080](http://localhost:8080) in your browser.
 
 ## 📜 Available Scripts
 
-|      Command       |                 Description                    |
-|--------------------|------------------------------------------------|
-| `npm run dev`      | Start Vite development server with hot reload  |
-| `npm run build`    | Compile TypeScript and bundle for production   |
-| `npm run preview`  | Preview the production build locally           |
-| `npx tsc --noEmit` | Type-check the entire project without building |
+|        Command         |                 Description                    |
+|------------------------|------------------------------------------------|
+| `npm run dev`          | Start Vite development server with hot reload  |
+| `npm run build`        | Compile TypeScript and bundle for production   |
+| `npm run preview`      | Preview the production build locally           |
+| `npm test`             | Run Vitest in watch mode                       |
+| `npm run test:run`     | Run the test suite once (what CI runs)         |
+| `npm run test:coverage`| Run the suite with a V8 coverage report        |
+| `npm run typecheck`    | Type-check the entire project without building |
+| `npm run lint`         | Run ESLint across the project                  |
+
+> Copy `frontend/.env.example` to `frontend/.env.local` before running the dev server if you need
+> to point the app at a non-default API URL. Every variable is read through `src/config/env.ts`.
 
 ---
 
@@ -147,11 +157,29 @@ All application logic lives in one custom hook (`src/hooks/useTransactions.ts`).
 
 - **CRUD** — `addTransaction`, `editTransaction`, `deleteTransaction`, `clearAll`
 - **Filtering** — `filters`, `updateFilters`, `resetFilters`, `filteredTransactions`
-- **Sorting** — `sort`, `updateSort`, `sortedTransactions`
+- **Sorting** — `sort`, `updateSort` (toggles a column), `setSort` (sets field and direction together), `sortedTransactions`
 - **Summaries** — `summary`, `filteredSummary`
 - **Chart data** — `incomeByCategory`, `expenseByCategory`
 
 Components receive data and callbacks via props — no global state library needed at this scale.
+`App.tsx` is the router shell: it owns the hook and hands a typed context to the four routed
+pages, which pass plain props down to the presentational components below them. That keeps the
+data seam in one place for the backend migration.
+
+### Routing
+
+`react-router-dom` drives four routes — `/overview`, `/analytics`, `/transactions`, `/settings` —
+with `/` redirecting to the overview and unknown paths falling back to it. The Docker/Nginx config
+already serves `index.html` for unmatched paths, so deep links work in the container too.
+
+### Correctness notes
+
+- Money-adjacent time series bucket by `YYYY-MM`, never by month index, so the same month in two
+  different years stays in two different buckets.
+- Transaction dates are plain calendar strings; "today" is read from local calendar fields rather
+  than `toISOString()`, which returns the UTC day and is off by one for much of the day in `Asia/Colombo`.
+- Percentage changes return `null` instead of `Infinity`/`NaN` when there is no prior period, and the
+  UI says so rather than printing a number.
 
 ### TypeScript Patterns Used
 
@@ -185,7 +213,7 @@ Transactions are serialized to JSON and stored in `localStorage` under the key `
 
 ## 🔮 Possible Improvements
 
-- [ ] Edit existing transactions in-place
+- [x] Edit existing transactions in-place
 - [ ] Monthly view with date navigation
 - [ ] CSV export
 - [ ] Multiple currency support

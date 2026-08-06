@@ -1,23 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Leaf, ChevronDown, ArrowRight, Search, MessageCircle, Bell, Settings, HelpCircle, LogOut, Menu, X } from 'lucide-react';
 import type { Transaction } from '../types';
 import { formatDate, formatCurrency } from '../utils/formatCurrency';
+import { SECTIONS } from '../navigation';
 
 interface TopNavBarProps {
   userName: string;
   userHandle: string;
   avatarUrl?: string;
-  onNavigate: (tab: string) => void;
   recentTransactions: Transaction[];
+  /** Phase 3 replaces this with a real session teardown (FR-04). */
+  onSignOut: () => void;
 }
 
-export function TopNavBar({ userName, userHandle, avatarUrl, onNavigate, recentTransactions }: TopNavBarProps) {
+export function TopNavBar({ userName, userHandle, avatarUrl, recentTransactions, onSignOut }: TopNavBarProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
-  const navTabs = ['Overview', 'Analytics', 'Transactions', 'Settings'];
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -74,6 +76,7 @@ export function TopNavBar({ userName, userHandle, avatarUrl, onNavigate, recentT
           <Search size={14} className="text-gray-400" />
           <input
             type="text"
+            aria-label="Search"
             placeholder="Search"
             className="bg-transparent border-none outline-none text-sm text-gray-400 placeholder-gray-400 flex-1"
           />
@@ -199,35 +202,37 @@ export function TopNavBar({ userName, userHandle, avatarUrl, onNavigate, recentT
               <div className="border-t border-gray-100 my-1" />
 
               {/* Menu Items */}
-              <div
-                onClick={() => {
-                  onNavigate('Settings');
-                  setShowProfile(false);
-                }}
+              <Link
+                to="/settings"
+                onClick={() => setShowProfile(false)}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer"
               >
                 <Settings size={16} />
                 <span>Settings</span>
-              </div>
+              </Link>
 
-              <div className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer">
+              <button
+                type="button"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer"
+              >
                 <HelpCircle size={16} />
                 <span>Help</span>
-              </div>
+              </button>
 
               {/* Divider */}
               <div className="border-t border-gray-100 my-1" />
 
-              <div
+              <button
+                type="button"
                 onClick={() => {
-                  window.alert('Sign out is not available in this demo.');
+                  onSignOut();
                   setShowProfile(false);
                 }}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer"
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 cursor-pointer"
               >
                 <LogOut size={16} />
                 <span>Sign out</span>
-              </div>
+              </button>
             </div>
           )}
         </div>
@@ -241,25 +246,24 @@ export function TopNavBar({ userName, userHandle, avatarUrl, onNavigate, recentT
               <Search size={14} className="text-gray-400" />
               <input
                 type="text"
+                aria-label="Search (mobile)"
                 placeholder="Search"
                 className="bg-transparent border-none outline-none text-sm text-gray-500 placeholder-gray-400 flex-1"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              {navTabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => {
-                    onNavigate(tab);
-                    setShowMobileMenu(false);
-                  }}
-                  className="text-sm text-gray-600 bg-white border border-gray-200 rounded-lg py-2.5 hover:bg-gray-100"
+            <nav aria-label="Sections (mobile)" className="grid grid-cols-2 gap-2">
+              {SECTIONS.map((section) => (
+                <Link
+                  key={section.path}
+                  to={section.path}
+                  onClick={() => setShowMobileMenu(false)}
+                  className="text-sm text-center text-gray-600 bg-white border border-gray-200 rounded-lg py-2.5 hover:bg-gray-100"
                 >
-                  {tab}
-                </button>
+                  {section.label}
+                </Link>
               ))}
-            </div>
+            </nav>
 
             <div className="flex items-center gap-2">
               <button className="flex-1 flex items-center justify-center gap-2 border border-gray-200 rounded-lg py-2.5 text-sm text-gray-600 bg-white">
