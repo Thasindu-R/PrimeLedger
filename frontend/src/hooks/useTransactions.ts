@@ -235,11 +235,16 @@ export function useTransactions() {
     setFilters({});
   }, []);
 
+  // Column headers toggle direction; the sort dropdown supplies both at once.
   const updateSort = useCallback((field: SortField): void => {
     setSort((prev) => ({
       field,
       order: prev.field === field && prev.order === 'desc' ? 'asc' : 'desc',
     }));
+  }, []);
+
+  const applySort = useCallback((config: SortConfig): void => {
+    setSort(config);
   }, []);
 
   /* ── Public API ── */
@@ -262,6 +267,7 @@ export function useTransactions() {
     // sorting
     sort,
     updateSort,
+    setSort: applySort,
     sortedTransactions,
 
     // summaries

@@ -1,44 +1,37 @@
+import { NavLink } from 'react-router-dom';
+import { SECTIONS } from '../navigation';
+
 interface PageHeaderProps {
   userName: string;
-  activeTab: string;
-  onTabChange: (tab: string) => void;
   rightSlot?: React.ReactNode;
 }
 
-const tabs = ["Overview", "Analytics", "Transactions", "Settings"];
-
-function TabNav({
-  activeTab,
-  onTabChange,
-}: {
-  activeTab: string;
-  onTabChange: (tab: string) => void;
-}) {
+function TabNav() {
   return (
-    <div className="flex gap-4 sm:gap-6 overflow-x-auto whitespace-nowrap pb-1">
-      {tabs.map((tab) => (
-        <button
-          key={tab}
-          onClick={() => onTabChange(tab)}
-          className={`text-sm ${
-            activeTab === tab
-              ? "text-green-600 font-medium border-b-2 border-green-500 pb-1"
-              : "text-gray-500 hover:text-gray-700"
-          }`}
+    <nav
+      aria-label="Sections"
+      className="flex gap-4 sm:gap-6 overflow-x-auto whitespace-nowrap pb-1"
+    >
+      {SECTIONS.map((section) => (
+        <NavLink
+          key={section.path}
+          to={section.path}
+          className={({ isActive }) =>
+            `text-sm ${
+              isActive
+                ? 'text-green-600 font-medium border-b-2 border-green-500 pb-1'
+                : 'text-gray-500 hover:text-gray-700'
+            }`
+          }
         >
-          {tab}
-        </button>
+          {section.label}
+        </NavLink>
       ))}
-    </div>
+    </nav>
   );
 }
 
-export function PageHeader({
-  userName,
-  activeTab,
-  onTabChange,
-  rightSlot,
-}: PageHeaderProps) {
+export function PageHeader({ userName, rightSlot }: PageHeaderProps) {
   return (
     <header className="w-full bg-white border-b border-gray-100 px-4 sm:px-6 py-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       {/* Left Side - Greeting */}
@@ -54,7 +47,7 @@ export function PageHeader({
       {/* Right Side */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
         {rightSlot}
-        <TabNav activeTab={activeTab} onTabChange={onTabChange} />
+        <TabNav />
       </div>
     </header>
   );

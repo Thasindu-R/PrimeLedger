@@ -1,21 +1,16 @@
-import { ArrowDownLeft, ArrowUpRight, Trash2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Pencil, Trash2 } from 'lucide-react';
 import type { Transaction } from '../types';
+import { formatDate } from '../utils/formatCurrency';
 
 interface TransactionItemProps {
   transaction: Transaction;
   onDelete: (id: string) => void;
+  onEdit: (transaction: Transaction) => void;
 }
 
-export function TransactionItem({ transaction, onDelete }: TransactionItemProps) {
+export function TransactionItem({ transaction, onDelete, onEdit }: TransactionItemProps) {
   const isIncome = transaction.type === 'income';
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString + 'T00:00:00').toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
+  const label = transaction.description || transaction.category;
 
   const formatAmount = (amount: number) => {
     return amount.toLocaleString('en-US', {
@@ -41,9 +36,7 @@ export function TransactionItem({ transaction, onDelete }: TransactionItemProps)
 
       {/* Center - Description and Meta */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-800 truncate">
-          {transaction.description || transaction.category}
-        </p>
+        <p className="text-sm font-medium text-gray-800 truncate">{label}</p>
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">
             {transaction.category}
@@ -53,18 +46,26 @@ export function TransactionItem({ transaction, onDelete }: TransactionItemProps)
         </div>
       </div>
 
-      {/* Right - Amount and Delete */}
-      <div className="flex items-center gap-3 flex-shrink-0">
+      {/* Right - Amount and Actions */}
+      <div className="flex items-center gap-1 flex-shrink-0">
         <span
-          className={`text-sm font-semibold ${
+          className={`text-sm font-semibold mr-2 ${
             isIncome ? 'text-green-600' : 'text-red-500'
           }`}
         >
           {isIncome ? '+' : '-'}Rs. {formatAmount(transaction.amount)}
         </span>
         <button
+          onClick={() => onEdit(transaction)}
+          aria-label={`Edit ${label}`}
+          className="sm:opacity-0 opacity-100 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-gray-100 text-gray-300 hover:text-gray-500"
+        >
+          <Pencil size={15} />
+        </button>
+        <button
           onClick={() => onDelete(transaction.id)}
-          className="sm:opacity-0 opacity-100 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400"
+          aria-label={`Delete ${label}`}
+          className="sm:opacity-0 opacity-100 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-red-50 text-gray-300 hover:text-red-400"
         >
           <Trash2 size={15} />
         </button>

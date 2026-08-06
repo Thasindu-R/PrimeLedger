@@ -1,62 +1,49 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { User, Database, Download, Info, ExternalLink } from 'lucide-react';
 import type { Transaction } from '../types';
+import { downloadCsv, exportFilename, transactionsToCsv } from '../utils/csv';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface SettingsContentProps {
   userName: string;
   onUserNameChange: (name: string) => void;
   onClearAll: () => void;
-  transactionCount: number;
-}
-
-function exportToCSV(transactions: Transaction[]) {
-  const headers = ['Date', 'Description', 'Category', 'Type', 'Amount'];
-  const rows = transactions.map((t) => [
-    t.date,
-    t.description || '',
-    t.category,
-    t.type,
-    t.amount.toString(),
-  ]);
-  const csv = [headers, ...rows].map((r) => r.join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  /** The live transactions. Reading storage here bypassed the state seam (D-03). */
+  transactions: Transaction[];
 }
 
 export function SettingsContent({
   userName,
   onUserNameChange,
   onClearAll,
-  transactionCount,
+  transactions,
 }: SettingsContentProps) {
-  const [inputName, setInputName] = useState(userName);
+  // `null` means "not edited yet", so the field follows the saved name until
+  // the user types. Cheaper and more predictable than syncing via an effect.
+  const [draftName, setDraftName] = useState<string | null>(null);
+  const [isConfirmingClear, setIsConfirmingClear] = useState(false);
+  const nameId = useId();
+  const transactionCount = transactions.length;
+  const inputName = draftName ?? userName;
 
   const handleSaveName = () => {
     onUserNameChange(inputName);
+    setDraftName(null);
   };
 
   const handleExport = () => {
-    const transactions: Transaction[] = JSON.parse(localStorage.getItem('finance_tracker_transactions') || '[]');
-    exportToCSV(transactions);
+    downloadCsv(transactionsToCsv(transactions), exportFilename());
   };
 
-  const handleClearAll = () => {
-    const confirmed = window.confirm(
-      `Are you sure? This will delete all ${transactionCount} transactions and cannot be undone.`
-    );
-    if (confirmed) {
-      onClearAll();
-    }
+  const handleConfirmClear = () => {
+    setIsConfirmingClear(false);
+    onClearAll();
   };
 
   const getInitials = (name: string) => {
     return name
       .split(' ')
+      .filter(Boolean)
       .map((n) => n[0])
       .join('')
       .toUpperCase()
@@ -79,11 +66,14 @@ export function SettingsContent({
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Display name</label>
+            <label htmlFor={nameId} className="block text-sm font-medium text-gray-700 mb-2">
+              Display name
+            </label>
             <input
+              id={nameId}
               type="text"
               value={inputName}
-              onChange={(e) => setInputName(e.target.value)}
+              onChange={(e) => setDraftName(e.target.value)}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-300 transition-colors"
               placeholder="Enter your name"
             />
@@ -132,7 +122,7 @@ export function SettingsContent({
               This will permanently delete all your transactions
             </p>
             <button
-              onClick={handleClearAll}
+              onClick={() => setIsConfirmingClear(true)}
               className="w-full border border-red-200 text-red-600 hover:bg-red-50 font-medium py-2.5 rounded-xl transition-colors"
             >
               Clear all transactions
@@ -148,12 +138,12 @@ export function SettingsContent({
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <Info size={18} className="text-gray-400" />
-            <span className="text-sm text-gray-600">Finance Tracker v1.0.0</span>
+            <span className="text-sm text-gray-600">PrimeLedger v1.0.0</span>
           </div>
           <div className="flex items-center gap-3">
             <Info size={18} className="text-gray-400" />
             <span className="text-sm text-gray-600">
-              Built with React, TypeScript, Tailwind CSS & Recharts
+              Built with React, TypeScript, Tailwind CSS &amp; Recharts
             </span>
           </div>
         </div>
@@ -168,6 +158,15 @@ export function SettingsContent({
           <span>View source on GitHub</span>
         </a>
       </div>
+
+      <ConfirmDialog
+        isOpen={isConfirmingClear}
+        title="Clear all transactions?"
+        message={`This permanently deletes all ${transactionCount} transactions. This cannot be undone.`}
+        confirmLabel="Clear all"
+        onConfirm={handleConfirmClear}
+        onCancel={() => setIsConfirmingClear(false)}
+      />
     </div>
   );
 }

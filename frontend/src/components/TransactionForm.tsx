@@ -1,6 +1,19 @@
-import { useState } from "react";
-import { Plus, X, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
-import type { Transaction, TransactionType, Category } from "../types";
+import { useEffect, useId, useState } from "react";
+import { Plus, X, TrendingUp, TrendingDown, AlertCircle, Save } from "lucide-react";
+import {
+  categoriesFor,
+  defaultCategoryFor,
+  type Category,
+  type Transaction,
+  type TransactionType,
+} from "../types";
+import {
+  DATE_ERROR_MESSAGES,
+  maxTransactionDate,
+  MIN_TRANSACTION_DATE,
+  today,
+  validateTransactionDate,
+} from "../utils/dates";
 
 interface FormState {
   description: string;
@@ -13,19 +26,31 @@ interface FormState {
 interface TransactionFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (data: Omit<Transaction, "id">) => void;
+  onSubmit: (data: Omit<Transaction, "id">) => void;
+  /** When present the form edits this transaction instead of creating one (D-07). */
+  transaction?: Transaction;
 }
 
-const INCOME_CATEGORIES: Category[] = ["Salary", "Freelance", "Gift", "Other"];
-const EXPENSE_CATEGORIES: Category[] = [
-  "Food",
-  "Transport",
-  "Utilities",
-  "Entertainment",
-  "Health",
-  "Education",
-  "Other",
-];
+function emptyForm(): FormState {
+  return {
+    description: "",
+    amount: "",
+    type: "income",
+    category: defaultCategoryFor("income"),
+    date: today(),
+  };
+}
+
+function formFor(transaction: Transaction | undefined): FormState {
+  if (!transaction) return emptyForm();
+  return {
+    description: transaction.description ?? "",
+    amount: String(transaction.amount),
+    type: transaction.type,
+    category: transaction.category,
+    date: transaction.date,
+  };
+}
 
 export function AddTransactionButton({ onClick }: { onClick: () => void }) {
   return (
@@ -42,26 +67,41 @@ export function AddTransactionButton({ onClick }: { onClick: () => void }) {
 export function TransactionForm({
   isOpen,
   onClose,
-  onAdd,
+  onSubmit,
+  transaction,
 }: TransactionFormProps) {
-  const [formState, setFormState] = useState<FormState>({
-    description: "",
-    amount: "",
-    type: "income",
-    category: "Salary",
-    date: new Date().toISOString().split("T")[0],
-  });
+  const isEditing = transaction !== undefined;
+  const [formState, setFormState] = useState<FormState>(() => formFor(transaction));
   const [error, setError] = useState<string | null>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  const amountId = useId();
+  const categoryId = useId();
+  const dateId = useId();
 
-  const categories =
-    formState.type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  // Reopening the modal must not show the previous subject's values. The shell
+  // remounts this component on every open (see the `key` in App) rather than
+  // resetting state from an effect.
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
+
+  const categories = categoriesFor(formState.type);
 
   const handleTypeChange = (type: TransactionType) => {
-    setFormState({
-      ...formState,
+    setFormState((prev) => ({
+      ...prev,
       type,
-      category: type === "income" ? "Salary" : "Food",
-    });
+      category: categoriesFor(type).includes(prev.category)
+        ? prev.category
+        : defaultCategoryFor(type),
+    }));
     setError(null);
   };
 
@@ -80,7 +120,13 @@ export function TransactionForm({
       return;
     }
 
-    onAdd({
+    const dateValidity = validateTransactionDate(formState.date);
+    if (dateValidity !== "ok") {
+      setError(DATE_ERROR_MESSAGES[dateValidity]);
+      return;
+    }
+
+    onSubmit({
       type: formState.type,
       category: formState.category,
       amount,
@@ -88,13 +134,7 @@ export function TransactionForm({
       description: formState.description.trim(),
     });
 
-    setFormState({
-      description: "",
-      amount: "",
-      type: "income",
-      category: "Salary",
-      date: new Date().toISOString().split("T")[0],
-    });
+    setFormState(emptyForm());
     onClose();
   };
 
@@ -106,16 +146,20 @@ export function TransactionForm({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-4 sm:p-6 relative"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold text-gray-800">
-            Add Transaction
+          <h2 id={titleId} className="text-lg font-semibold text-gray-800">
+            {isEditing ? "Edit Transaction" : "Add Transaction"}
           </h2>
           <button
             onClick={onClose}
+            aria-label="Close dialog"
             className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-400 hover:text-gray-600"
           >
             <X size={18} />
@@ -125,7 +169,9 @@ export function TransactionForm({
         {/* Type Toggle */}
         <div className="grid grid-cols-2 gap-2 mb-5">
           <button
+            type="button"
             onClick={() => handleTypeChange("income")}
+            aria-pressed={formState.type === "income"}
             className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
               formState.type === "income"
                 ? "bg-green-500 text-white shadow-sm"
@@ -136,7 +182,9 @@ export function TransactionForm({
             Income
           </button>
           <button
+            type="button"
             onClick={() => handleTypeChange("expense")}
+            aria-pressed={formState.type === "expense"}
             className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
               formState.type === "expense"
                 ? "bg-red-500 text-white shadow-sm"
@@ -149,13 +197,17 @@ export function TransactionForm({
         </div>
 
         {/* Form Fields */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           {/* Description */}
           <div>
-            <label className="text-xs font-medium text-gray-500 mb-1.5 block">
+            <label
+              htmlFor={descriptionId}
+              className="text-xs font-medium text-gray-500 mb-1.5 block"
+            >
               Description
             </label>
             <input
+              id={descriptionId}
               type="text"
               value={formState.description}
               onChange={(e) =>
@@ -168,7 +220,10 @@ export function TransactionForm({
 
           {/* Amount */}
           <div>
-            <label className="text-xs font-medium text-gray-500 mb-1.5 block">
+            <label
+              htmlFor={amountId}
+              className="text-xs font-medium text-gray-500 mb-1.5 block"
+            >
               Amount
             </label>
             <div className="relative">
@@ -176,6 +231,7 @@ export function TransactionForm({
                 Rs.
               </span>
               <input
+                id={amountId}
                 type="number"
                 min="0"
                 step="any"
@@ -191,10 +247,14 @@ export function TransactionForm({
 
           {/* Category */}
           <div>
-            <label className="text-xs font-medium text-gray-500 mb-1.5 block">
+            <label
+              htmlFor={categoryId}
+              className="text-xs font-medium text-gray-500 mb-1.5 block"
+            >
               Category
             </label>
             <select
+              id={categoryId}
               value={formState.category}
               onChange={(e) =>
                 setFormState({
@@ -214,12 +274,18 @@ export function TransactionForm({
 
           {/* Date */}
           <div>
-            <label className="text-xs font-medium text-gray-500 mb-1.5 block">
+            <label
+              htmlFor={dateId}
+              className="text-xs font-medium text-gray-500 mb-1.5 block"
+            >
               Date
             </label>
             <input
+              id={dateId}
               type="date"
               value={formState.date}
+              min={MIN_TRANSACTION_DATE}
+              max={maxTransactionDate()}
               onChange={(e) =>
                 setFormState({ ...formState, date: e.target.value })
               }
@@ -229,7 +295,7 @@ export function TransactionForm({
 
           {/* Error */}
           {error && (
-            <p className="text-xs text-red-500 flex items-center gap-1">
+            <p role="alert" className="text-xs text-red-500 flex items-center gap-1">
               <AlertCircle size={12} />
               {error}
             </p>
@@ -240,8 +306,8 @@ export function TransactionForm({
             type="submit"
             className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl text-base sm:text-sm font-semibold transition-colors flex items-center justify-center gap-2 mt-6"
           >
-            <Plus size={16} />
-            Add Transaction
+            {isEditing ? <Save size={16} /> : <Plus size={16} />}
+            {isEditing ? "Save changes" : "Add Transaction"}
           </button>
         </form>
       </div>

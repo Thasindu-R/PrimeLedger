@@ -14,18 +14,13 @@ const RING_COLORS = [
   '#14b8a6',
 ];
 
-export interface CategoryBreakdown {
-  category: string;
-  total: number;
-  percentage: number;
-}
-
 interface AllExpensesPanelProps {
   transactions: Transaction[];
 }
 
 export function AllExpensesPanel({ transactions }: AllExpensesPanelProps) {
-  const [activeTab, setActiveTab] = useState<'income' | 'expense'>('expense');
+  // The income/expense toggle that used to live here is gone: income now has
+  // its own panel alongside this one (D-06), so this card is expenses only.
   const [activePeriod, setActivePeriod] = useState<
     'month' | 'lastMonth' | 'year' | 'all'
   >('month');
@@ -51,8 +46,8 @@ export function AllExpensesPanel({ transactions }: AllExpensesPanelProps) {
         }
         return true;
       })
-      .filter((t) => t.type === activeTab);
-  }, [transactions, activePeriod, activeTab]);
+      .filter((t) => t.type === 'expense');
+  }, [transactions, activePeriod]);
 
   const categories = useMemo(() => {
     const grandTotal = filteredTransactions.reduce((s, t) => s + t.amount, 0);
@@ -81,32 +76,9 @@ export function AllExpensesPanel({ transactions }: AllExpensesPanelProps) {
   ];
 
   return (
-    <div className="rounded-2xl border border-gray-100 shadow-sm p-6">
-      {/* Section 1 — Income / Expense tab toggle */}
-      <div className="grid grid-cols-2 gap-1 bg-gray-50 rounded-xl p-1 mb-4">
-        <button
-          type="button"
-          onClick={() => setActiveTab('income')}
-          className={
-            activeTab === 'income'
-              ? 'bg-white rounded-lg shadow-sm text-gray-800 font-medium text-sm py-2 text-center transition-all text-green-600'
-              : 'text-gray-400 text-sm py-2 text-center hover:text-gray-600 transition-all'
-          }
-        >
-          Income
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('expense')}
-          className={
-            activeTab === 'expense'
-              ? 'bg-white rounded-lg shadow-sm text-gray-800 font-medium text-sm py-2 text-center transition-all text-red-500'
-              : 'text-gray-400 text-sm py-2 text-center hover:text-gray-600 transition-all'
-          }
-        >
-          Expenses
-        </button>
-      </div>
+    <div className="w-full bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      {/* Section 1 — Card header */}
+      <h2 className="text-base font-semibold text-gray-800 mb-3">All expenses</h2>
 
       {/* Section 2 — Period selector */}
       <div className="flex gap-2 mb-5 flex-wrap">
@@ -115,6 +87,7 @@ export function AllExpensesPanel({ transactions }: AllExpensesPanelProps) {
             key={pill.key}
             type="button"
             onClick={() => setActivePeriod(pill.key)}
+            aria-pressed={activePeriod === pill.key}
             className={
               activePeriod === pill.key
                 ? 'bg-green-500 text-white text-xs font-medium px-3 py-1 rounded-full'
@@ -174,9 +147,9 @@ export function AllExpensesPanel({ transactions }: AllExpensesPanelProps) {
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number, name: string) => [
-                    `${Math.round(value)}%`,
-                    name,
+                  formatter={(value: unknown, name: unknown) => [
+                    `${Math.round(Number(value ?? 0))}%`,
+                    String(name ?? ''),
                   ]}
                   contentStyle={{
                     borderRadius: '12px',

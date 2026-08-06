@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { CheckCircle, AlertCircle, Info, X } from "lucide-react";
 
 export interface ToastMessage {
@@ -53,19 +53,4 @@ export function Toast({
       ))}
     </div>
   );
-}
-
-export function useToast() {
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
-
-  function showToast(message: string, type: ToastMessage["type"] = "info") {
-    const id = crypto.randomUUID();
-    setToasts((prev) => [...prev, { id, message, type }]);
-  }
-
-  function removeToast(id: string) {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }
-
-  return { toasts, showToast, removeToast };
 }

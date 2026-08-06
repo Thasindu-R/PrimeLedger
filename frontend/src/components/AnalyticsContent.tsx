@@ -12,7 +12,9 @@ import {
 } from 'recharts';
 import { Hash, TrendingDown, PiggyBank } from 'lucide-react';
 import { formatCurrency, formatChartAxis } from '../utils/formatCurrency';
-import type { CategoryBreakdown } from './AllExpensesPanel';
+import { buildMonthlySeries } from '../utils/timeSeries';
+import type { ChartTooltipProps } from './chartTooltip';
+import type { CategoryBreakdown } from '../hooks/useTransactions';
 import type { Transaction, Summary } from '../types';
 
 interface AnalyticsContentProps {
@@ -20,6 +22,32 @@ interface AnalyticsContentProps {
   summary: Summary;
   expenseByCategory: CategoryBreakdown[];
   incomeByCategory: CategoryBreakdown[];
+}
+
+const getNetBarColor = (value: number) => (value >= 0 ? '#22c55e' : '#ef4444');
+
+function CategoryTooltip({ active, payload, label }: ChartTooltipProps) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg">
+      <p className="font-semibold mb-1">{label}</p>
+      <p style={{ color: payload[0].color }}>
+        {formatCurrency(payload[0].value ?? 0)}
+      </p>
+    </div>
+  );
+}
+
+function NetSavingsTooltip({ active, payload, label }: ChartTooltipProps) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg">
+      <p className="font-semibold mb-1">{label}</p>
+      <p style={{ color: payload[0].fill }}>
+        Net: {formatCurrency(payload[0].value ?? 0)}
+      </p>
+    </div>
+  );
 }
 
 export function AnalyticsContent({
@@ -42,66 +70,12 @@ export function AnalyticsContent({
     return rate.toFixed(1) + '%';
   }, [summary.totalIncome, summary.totalExpense]);
 
-  const monthlyNetData = useMemo(() => {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return months.map((month, i) => {
-      const monthTransactions = transactions.filter(
-        (t) => new Date(t.date).getMonth() === i,
-      );
-      const income = monthTransactions
-        .filter((t) => t.type === 'income')
-        .reduce((s, t) => s + t.amount, 0);
-      const expense = monthTransactions
-        .filter((t) => t.type === 'expense')
-        .reduce((s, t) => s + t.amount, 0);
-      return {
-        month,
-        income,
-        expense,
-        net: income - expense,
-      };
-    });
-  }, [transactions]);
-
-  const getNetBarColor = (value: number) =>
-    value >= 0 ? '#22c55e' : '#ef4444';
-
-  function CategoryTooltip({ active, payload, label }: any) {
-    if (!active || !payload?.length) return null;
-    return (
-      <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg">
-        <p className="font-semibold mb-1">{label}</p>
-        <p style={{ color: payload[0].color }}>
-          {formatCurrency(payload[0].value)}
-        </p>
-      </div>
-    );
-  }
-
-  function NetSavingsTooltip({ active, payload, label }: any) {
-    if (!active || !payload?.length) return null;
-    return (
-      <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg">
-        <p className="font-semibold mb-1">{label}</p>
-        <p style={{ color: payload[0].fill }}>
-          Net: {formatCurrency(payload[0].value)}
-        </p>
-      </div>
-    );
-  }
+  // Bucketed by YYYY-MM over an explicit window, so the same month in two
+  // different years no longer collapses into one bar (D-02).
+  const monthlyNetData = useMemo(
+    () => buildMonthlySeries(transactions, { months: 12 }),
+    [transactions],
+  );
 
   return (
     <div className="space-y-4">
@@ -181,7 +155,7 @@ export function AnalyticsContent({
                 <LabelList
                   dataKey="total"
                   position="right"
-                  formatter={(v: number) => formatCurrency(v)}
+                  formatter={(v: unknown) => formatCurrency(Number(v ?? 0))}
                   style={{ fontSize: 11, fill: '#6b7280' }}
                 />
               </Bar>
@@ -223,7 +197,7 @@ export function AnalyticsContent({
                 <LabelList
                   dataKey="total"
                   position="right"
-                  formatter={(v: number) => formatCurrency(v)}
+                  formatter={(v: unknown) => formatCurrency(Number(v ?? 0))}
                   style={{ fontSize: 11, fill: '#6b7280' }}
                 />
               </Bar>

@@ -1,216 +1,38 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useTransactions } from './hooks/useTransactions';
+import { useProfile } from './hooks/useProfile';
 import { TopNavBar } from './components/TopNavBar';
 import { PageHeader } from './components/PageHeader';
-import { BalanceCard } from './components/BalanceCard';
-import { StatCard } from './components/StatCard';
-import {
-  StatisticsChart,
-  type MonthlyDataPoint,
-} from './components/StatisticsChart';
-import { AllExpensesPanel } from './components/AllExpensesPanel';
-import { PromoBanner } from './components/PromoBanner';
-import { TransactionList } from './components/TransactionList';
-import {
-  TransactionForm,
-  AddTransactionButton,
-} from './components/TransactionForm';
-import { AnalyticsContent } from './components/AnalyticsContent';
-import { TransactionsContent } from './components/TransactionsContent';
-import { SettingsContent } from './components/SettingsContent';
-import { Toast, useToast } from './components/Toast';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TransactionForm, AddTransactionButton } from './components/TransactionForm';
+import { ConfirmDialog } from './components/ConfirmDialog';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { Toast } from './components/Toast';
+import { useToast } from './hooks/useToast';
+import { OverviewPage } from './pages/OverviewPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
+import { TransactionsPage } from './pages/TransactionsPage';
+import { SettingsPage } from './pages/SettingsPage';
+import type { LedgerContext } from './pages/ledgerContext';
+import { buildMonthlySeries } from './utils/timeSeries';
+import { averagePerActiveMonth, computePeriodDeltas } from './utils/periodComparison';
 import type { Transaction } from './types';
-import type { Summary } from './types';
-import type { CategoryBreakdown } from './hooks/useTransactions';
-import type { TransactionFilters, SortConfig } from './hooks/useTransactions';
 
-interface OverviewContentProps {
-  summary: Summary;
-  transactions: Transaction[];
-  monthlyChartData: MonthlyDataPoint[];
-  sortedTransactions: Transaction[];
-  deleteTransaction: (id: string) => void;
-  updateFilters: (filters: Partial<TransactionFilters>) => void;
-  resetFilters: () => void;
-  showToast: (message: string, type: 'success' | 'error' | 'info') => void;
-}
-
-function OverviewContent({
-  summary,
-  transactions,
-  monthlyChartData,
-  sortedTransactions,
-  deleteTransaction,
-  updateFilters,
-  resetFilters,
-  showToast,
-}: OverviewContentProps) {
-  return (
-    <>
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-start">
-        {/* Left Column */}
-        <div className="space-y-4">
-          {/* Cards Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            <BalanceCard
-              balance={summary.balance}
-              changePercent={6.7}
-              totalIncome={summary.totalIncome}
-              totalExpense={summary.totalExpense}
-            />
-            <StatCard
-              label="Monthly income"
-              amount={summary.totalIncome}
-              changePercent={9.8}
-              variant="income"
-              icon={<TrendingUp size={20} />}
-            />
-            <StatCard
-              label="Monthly expenses"
-              amount={summary.totalExpense}
-              changePercent={-8.6}
-              variant="expense"
-              icon={<TrendingDown size={20} />}
-            />
-          </div>
-
-          {/* Statistics Chart */}
-          <StatisticsChart
-            data={monthlyChartData}
-            avgIncome={summary.totalIncome}
-            avgExpense={summary.totalExpense}
-            avgIncomeChange={9.8}
-            avgExpenseChange={8.7}
-          />
-        </div>
-
-        {/* Right column */}
-        <div className="space-y-4">
-          <AllExpensesPanel transactions={transactions} />
-          <PromoBanner
-            headline="Secure Your Future with Smart Budgeting"
-            subtitle="Track every rupee. Build better habits. Reach your goals faster."
-            ctaLabel="Learn more"
-            onCtaClick={() => showToast('This feature is coming soon!', 'info')}
-          />
-        </div>
-      </div>
-
-      {/* Transaction List */}
-      <TransactionList
-        transactions={sortedTransactions}
-        onDelete={deleteTransaction}
-        onSearchChange={(term) => updateFilters({ search: term })}
-        onTypeFilter={(type) =>
-          type ? updateFilters({ type }) : resetFilters()
-        }
-        onSortChange={(val) => console.log('sort:', val)}
-      />
-    </>
-  );
-}
-
-interface TabContentProps {
-  activeTab: string;
-  summary: Summary;
-  expenseByCategory: CategoryBreakdown[];
-  incomeByCategory: CategoryBreakdown[];
-  monthlyChartData: MonthlyDataPoint[];
-  sortedTransactions: Transaction[];
-  deleteTransaction: (id: string) => void;
-  updateFilters: (filters: Partial<TransactionFilters>) => void;
-  resetFilters: () => void;
-  showToast: (message: string, type: 'success' | 'error' | 'info') => void;
-  transactions: Transaction[];
-  filters: TransactionFilters;
-  sort: SortConfig;
-  updateSort: (field: SortConfig['field']) => void;
-  userName: string;
-  onUserNameChange: (name: string) => void;
-  onClearAll: () => void;
-}
-
-function TabContent({
-  activeTab,
-  summary,
-  expenseByCategory,
-  incomeByCategory,
-  monthlyChartData,
-  sortedTransactions,
-  deleteTransaction,
-  updateFilters,
-  resetFilters,
-  showToast,
-  transactions,
-  filters,
-  sort,
-  updateSort,
-  userName,
-  onUserNameChange,
-  onClearAll,
-}: TabContentProps) {
-  if (activeTab === 'Overview') {
-    return (
-      <OverviewContent
-        summary={summary}
-        transactions={transactions}
-        monthlyChartData={monthlyChartData}
-        sortedTransactions={sortedTransactions}
-        deleteTransaction={deleteTransaction}
-        updateFilters={updateFilters}
-        resetFilters={resetFilters}
-        showToast={showToast}
-      />
-    );
-  }
-  if (activeTab === 'Analytics') {
-    return (
-      <AnalyticsContent
-        transactions={transactions}
-        summary={summary}
-        expenseByCategory={expenseByCategory}
-        incomeByCategory={incomeByCategory}
-      />
-    );
-  }
-  if (activeTab === 'Transactions') {
-    return (
-      <TransactionsContent
-        onDelete={deleteTransaction}
-        updateFilters={updateFilters}
-        resetFilters={resetFilters}
-        filters={filters}
-        sortedTransactions={sortedTransactions}
-        sort={sort}
-        updateSort={updateSort}
-      />
-    );
-  }
-  if (activeTab === 'Settings') {
-    return (
-      <SettingsContent
-        userName={userName}
-        onUserNameChange={onUserNameChange}
-        onClearAll={onClearAll}
-        transactionCount={transactions.length}
-      />
-    );
-  }
-  return null;
-}
-
-export default function App() {
-  const [activeTab, setActiveTab] = useState('Overview');
+function AppShell() {
+  const [editing, setEditing] = useState<Transaction | undefined>(undefined);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [userName, setUserName] = useState('Thasindu');
+  // Bumped on every open so the form remounts with fresh state instead of
+  // resetting itself from an effect.
+  const [formSession, setFormSession] = useState(0);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const { toasts, showToast, removeToast } = useToast();
+  const { displayName, setDisplayName, handle } = useProfile();
 
   const {
     transactions,
     sortedTransactions,
     addTransaction,
+    editTransaction,
     deleteTransaction,
     clearAll,
     summary,
@@ -220,110 +42,150 @@ export default function App() {
     resetFilters,
     filters,
     sort,
+    setSort,
     updateSort,
+    recentTransactions,
   } = useTransactions();
 
-  const monthlyChartData: MonthlyDataPoint[] = useMemo(() => {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return months.map((month, i) => {
-      const monthTransactions = transactions.filter(
-        (t) => new Date(t.date).getMonth() === i,
-      );
-      return {
-        month,
-        income: monthTransactions
-          .filter((t) => t.type === 'income')
-          .reduce((s, t) => s + t.amount, 0),
-        expense: monthTransactions
-          .filter((t) => t.type === 'expense')
-          .reduce((s, t) => s + t.amount, 0),
-      };
-    });
-  }, [transactions]);
+  // Bucketed by YYYY-MM over an explicit 12-month window (D-02).
+  const monthlySeries = useMemo(
+    () => buildMonthlySeries(transactions, { months: 12 }),
+    [transactions],
+  );
 
-  const handleAddTransaction = (data: Omit<Transaction, 'id'>) => {
-    addTransaction(data);
-    showToast('Transaction added!', 'success');
+  // Real month-over-month change, replacing the hard-coded literals (D-05).
+  const deltas = useMemo(() => computePeriodDeltas(transactions), [transactions]);
+
+  const averageMonthly = useMemo(
+    () => averagePerActiveMonth(monthlySeries),
+    [monthlySeries],
+  );
+
+  const openAddForm = () => {
+    setEditing(undefined);
+    setFormSession((n) => n + 1);
+    setIsFormOpen(true);
   };
 
-  const handleDeleteTransaction = (id: string) => {
-    deleteTransaction(id);
-    showToast('Transaction deleted.', 'info');
+  const requestEdit = (transaction: Transaction) => {
+    setEditing(transaction);
+    setFormSession((n) => n + 1);
+    setIsFormOpen(true);
   };
 
+  const handleSubmit = (data: Omit<Transaction, 'id'>) => {
+    if (editing) {
+      editTransaction(editing.id, data);
+      showToast('Transaction updated.', 'success');
+    } else {
+      addTransaction(data);
+      showToast('Transaction added!', 'success');
+    }
+    setEditing(undefined);
+  };
+
+  const pendingTransaction = transactions.find((t) => t.id === pendingDeleteId);
+
+  const handleConfirmDelete = () => {
+    if (pendingDeleteId) {
+      deleteTransaction(pendingDeleteId);
+      showToast('Transaction deleted.', 'info');
+    }
+    setPendingDeleteId(null);
+  };
+
+  // The settings page confirms this with its own dialog before calling through.
   const handleClearAll = () => {
     clearAll();
     showToast('All data cleared.', 'error');
   };
 
-  const handleNavigate = (tab: string) => {
-    setActiveTab(tab);
+  const handleUserNameChange = (name: string) => {
+    setDisplayName(name);
+    showToast('Display name updated.', 'success');
   };
 
-  const handleUserNameChange = (name: string) => {
-    setUserName(name);
-    showToast('Display name updated.', 'success');
+  const context: LedgerContext = {
+    transactions,
+    sortedTransactions,
+    summary,
+    deltas,
+    monthlySeries,
+    averageMonthly,
+    incomeByCategory,
+    expenseByCategory,
+    filters,
+    updateFilters,
+    resetFilters,
+    sort,
+    setSort,
+    updateSort,
+    requestDelete: setPendingDeleteId,
+    requestEdit,
+    clearAll: handleClearAll,
+    userName: displayName,
+    onUserNameChange: handleUserNameChange,
+    showToast,
   };
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <TopNavBar
-        userName={userName}
-        userHandle="@thasindu"
-        onNavigate={handleNavigate}
-        recentTransactions={transactions.slice(0, 5)}
+        userName={displayName}
+        userHandle={handle}
+        recentTransactions={recentTransactions}
+        onSignOut={() =>
+          showToast('Accounts arrive in the next phase — nothing to sign out of yet.', 'info')
+        }
       />
       <PageHeader
-        userName={userName}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        rightSlot={<AddTransactionButton onClick={() => setIsFormOpen(true)} />}
+        userName={displayName}
+        rightSlot={<AddTransactionButton onClick={openAddForm} />}
       />
 
-      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 transition-all duration-200">
-        <TabContent
-          activeTab={activeTab}
-          summary={summary}
-          expenseByCategory={expenseByCategory}
-          incomeByCategory={incomeByCategory}
-          monthlyChartData={monthlyChartData}
-          sortedTransactions={sortedTransactions}
-          deleteTransaction={handleDeleteTransaction}
-          updateFilters={updateFilters}
-          resetFilters={resetFilters}
-          showToast={showToast}
-          transactions={transactions}
-          filters={filters}
-          sort={sort}
-          updateSort={updateSort}
-          userName={userName}
-          onUserNameChange={handleUserNameChange}
-          onClearAll={handleClearAll}
-        />
-      </div>
+      <main className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 transition-all duration-200">
+        {/* A fault in one page must not blank the shell around it (FR-43). */}
+        <ErrorBoundary>
+          <Outlet context={context} />
+        </ErrorBoundary>
+      </main>
 
-      {/* Transaction Form Modal */}
       <TransactionForm
+        key={formSession}
         isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onAdd={handleAddTransaction}
+        transaction={editing}
+        onClose={() => {
+          setIsFormOpen(false);
+          setEditing(undefined);
+        }}
+        onSubmit={handleSubmit}
       />
 
-      {/* Toast Notifications */}
+      <ConfirmDialog
+        isOpen={pendingDeleteId !== null}
+        title="Delete this transaction?"
+        message={`"${pendingTransaction?.description || pendingTransaction?.category || 'This transaction'}" will be removed from your ledger.`}
+        confirmLabel="Delete"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setPendingDeleteId(null)}
+      />
+
       <Toast toasts={toasts} onRemove={removeToast} />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route element={<AppShell />}>
+        <Route index element={<Navigate to="/overview" replace />} />
+        <Route path="/overview" element={<OverviewPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/transactions" element={<TransactionsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="*" element={<Navigate to="/overview" replace />} />
+      </Route>
+    </Routes>
   );
 }

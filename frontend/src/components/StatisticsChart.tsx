@@ -7,50 +7,52 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Calendar, TrendingUp, BarChart2 } from 'lucide-react';
+import { Calendar, TrendingDown, TrendingUp, BarChart2 } from 'lucide-react';
 import {
   formatCurrencyParts,
   formatCurrency,
   formatChartAxis,
 } from '../utils/formatCurrency';
-
-export interface MonthlyDataPoint {
-  month: string;
-  income: number;
-  expense: number;
-}
+import type { MonthlyPoint } from '../utils/timeSeries';
+import type { ChartTooltipProps } from './chartTooltip';
 
 interface StatisticsChartProps {
-  data: MonthlyDataPoint[];
+  data: MonthlyPoint[];
   avgIncome: number;
   avgExpense: number;
-  avgIncomeChange: number;
-  avgExpenseChange: number;
+  /** Null when there is no prior month to compare against (D-05). */
+  avgIncomeChange: number | null;
+  avgExpenseChange: number | null;
 }
 
-const MOCK_DATA: MonthlyDataPoint[] = [
-  { month: 'Jan', income: 52000, expense: 38000 },
-  { month: 'Feb', income: 48000, expense: 41000 },
-  { month: 'Mar', income: 55000, expense: 36000 },
-  { month: 'Apr', income: 61000, expense: 42000 },
-  { month: 'May', income: 58000, expense: 39000 },
-  { month: 'Jun', income: 64000, expense: 45000 },
-  { month: 'Jul', income: 59000, expense: 40000 },
-  { month: 'Aug', income: 67000, expense: 44000 },
-  { month: 'Sep', income: 62000, expense: 37000 },
-  { month: 'Oct', income: 70000, expense: 48000 },
-  { month: 'Nov', income: 66000, expense: 43000 },
-  { month: 'Dec', income: 72000, expense: 50000 },
-];
+function ChangeNote({ change }: { change: number | null }) {
+  if (change === null) {
+    return <span className="text-xs text-gray-400">No prior month to compare</span>;
+  }
+  const isPositive = change >= 0;
+  return (
+    <>
+      {isPositive ? (
+        <TrendingUp size={12} className="text-green-500" />
+      ) : (
+        <TrendingDown size={12} className="text-red-500" />
+      )}
+      <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+        {isPositive ? '+' : ''}
+        {change}% compare to last month
+      </span>
+    </>
+  );
+}
 
-function CustomTooltip({ active, payload, label }: any) {
+function CustomTooltip({ active, payload, label }: ChartTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-lg">
       <p className="font-semibold mb-1">{label}</p>
-      {payload.map((entry: any) => (
+      {payload.map((entry) => (
         <p key={entry.name} style={{ color: entry.color }}>
-          {entry.name}: {formatCurrency(entry.value)}
+          {entry.name}: {formatCurrency(entry.value ?? 0)}
         </p>
       ))}
     </div>
@@ -67,11 +69,8 @@ export function StatisticsChart({
   const avgIncomeFormatted = formatCurrencyParts(avgIncome);
   const avgExpenseFormatted = formatCurrencyParts(avgExpense);
 
-  const isMockFallback = data.length === 0;
-  const chartData = isMockFallback ? MOCK_DATA : data;
-  const activeMonths = data.filter(
-    (d) => d.income > 0 || d.expense > 0,
-  ).length;
+  // No mock fallback: an empty ledger shows an empty state, never invented figures.
+  const activeMonths = data.filter((d) => d.income > 0 || d.expense > 0).length;
   const hasEnoughData = activeMonths >= 2;
 
   return (
@@ -102,7 +101,7 @@ export function StatisticsChart({
 
       {/* Section 2 - Recharts AreaChart */}
       <div className="h-64 sm:h-72">
-        {!hasEnoughData && !isMockFallback ? (
+        {!hasEnoughData ? (
           <div className="h-64 flex flex-col items-center justify-center text-gray-300 gap-2">
             <BarChart2 size={40} strokeWidth={1.5} />
             <p className="text-sm font-medium">
@@ -116,7 +115,7 @@ export function StatisticsChart({
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
-              data={chartData}
+              data={data}
               margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
               syncId="stats"
             >
@@ -191,7 +190,7 @@ export function StatisticsChart({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-6 border-t border-gray-100">
         {/* Average Income */}
         <div>
-          <p className="text-xs text-gray-400 mb-1">Average income</p>
+          <p className="text-xs text-gray-400 mb-1">Average monthly income</p>
           <div>
             <span className="text-2xl font-bold text-gray-900">
               {avgIncomeFormatted.whole}
@@ -201,16 +200,13 @@ export function StatisticsChart({
             </span>
           </div>
           <div className="flex items-center gap-1 mt-2">
-            <TrendingUp size={12} className="text-green-500" />
-            <span className="text-xs text-green-500">
-              +{avgIncomeChange}% compare to last month
-            </span>
+            <ChangeNote change={avgIncomeChange} />
           </div>
         </div>
 
         {/* Average Expenses */}
         <div>
-          <p className="text-xs text-gray-400 mb-1">Average expenses</p>
+          <p className="text-xs text-gray-400 mb-1">Average monthly expenses</p>
           <div>
             <span className="text-2xl font-bold text-gray-900">
               {avgExpenseFormatted.whole}
@@ -220,10 +216,7 @@ export function StatisticsChart({
             </span>
           </div>
           <div className="flex items-center gap-1 mt-2">
-            <TrendingUp size={12} className="text-green-500" />
-            <span className="text-xs text-green-500">
-              +{avgExpenseChange}% compare to last month
-            </span>
+            <ChangeNote change={avgExpenseChange} />
           </div>
         </div>
       </div>
