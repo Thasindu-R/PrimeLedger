@@ -1,5 +1,5 @@
-import { TransactionsContent } from '../components/TransactionsContent';
-import { useLedger } from './ledgerContext';
+import { TransactionsContent } from '../../components/TransactionsContent';
+import { useLedger } from '../ledgerContext';
 
 export function TransactionsPage() {
   const {
