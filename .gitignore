@@ -29,5 +29,11 @@ coverage
 *.sln
 *.sw?
 data/*.db
-backend/node_modules/
-backend/dist/
+
+# Backend — Gradle / Java. The wrapper (gradlew, gradle/wrapper/) is committed
+# on purpose so the build is reproducible without a local Gradle install.
+backend/.gradle/
+backend/build/
+backend/bin/
+backend/out/
+*.class

@@ -1,12 +1,12 @@
 import { TrendingUp, TrendingDown } from 'lucide-react';
-import { BalanceCard } from '../components/BalanceCard';
-import { StatCard } from '../components/StatCard';
-import { StatisticsChart } from '../components/StatisticsChart';
-import { AllExpensesPanel } from '../components/AllExpensesPanel';
-import { AllIncomePanel } from '../components/AllIncomePanel';
-import { PromoBanner } from '../components/PromoBanner';
-import { TransactionList } from '../components/TransactionList';
-import { useLedger } from './ledgerContext';
+import { BalanceCard } from '../../components/BalanceCard';
+import { StatCard } from '../../components/StatCard';
+import { StatisticsChart } from '../../components/StatisticsChart';
+import { AllExpensesPanel } from '../../components/AllExpensesPanel';
+import { AllIncomePanel } from '../../components/AllIncomePanel';
+import { PromoBanner } from '../../components/PromoBanner';
+import { TransactionList } from '../../components/TransactionList';
+import { useLedger } from '../ledgerContext';
 
 export function OverviewPage() {
   const {

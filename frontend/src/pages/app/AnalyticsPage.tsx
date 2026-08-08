@@ -1,5 +1,5 @@
-import { AnalyticsContent } from '../components/AnalyticsContent';
-import { useLedger } from './ledgerContext';
+import { AnalyticsContent } from '../../components/AnalyticsContent';
+import { useLedger } from '../ledgerContext';
 
 export function AnalyticsPage() {
   const { transactions, summary, expenseByCategory, incomeByCategory } = useLedger();

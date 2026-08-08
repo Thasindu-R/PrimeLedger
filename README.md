@@ -45,32 +45,55 @@ A personal finance management web app built with **React** and **TypeScript**. L
 
 ## 📁 Project Structure
 
+A monorepo, so an API change and its consumer change land in one reviewable
+pull request. Directories marked with a phase are scaffolded but empty — they
+are filled in when that phase runs.
+
 ```
-finance-tracker/
-├── src/
-│   ├── components/
-│   │   ├── TransactionForm.tsx     # Controlled form with validation
-│   │   ├── TransactionList.tsx     # Filterable, sortable transaction list
-│   │   ├── TransactionItem.tsx     # Single transaction row with delete
-│   │   ├── SummaryCards.tsx        # Balance, income, expense stat cards
-│   │   └── SummaryChart.tsx        # Recharts bar + pie charts
-│   ├── hooks/
-│   │   └── useTransactions.ts      # Core state — CRUD, filtering, sorting, summaries
-│   ├── types/
-│   │   └── index.ts                # All TypeScript interfaces and union types
-│   ├── utils/
-│   │   └── formatCurrency.ts       # Currency formatting helpers
-│   ├── App.tsx                     # Root component — wires everything together
-│   └── main.tsx                    # React entry point
-├── public/
-├── Dockerfile                      # Multi-stage production build
-├── .dockerignore
-├── .gitignore
-├── index.html
-├── vite.config.ts
-├── tsconfig.json
-└── package.json
+primeledger/
+├── frontend/                 React 19 · TypeScript · Vite · Tailwind
+│   ├── src/
+│   │   ├── api/              typed client, one module per resource   [Phase 4]
+│   │   ├── components/       presentational components
+│   │   │   └── ui/           Skeleton · ErrorState · EmptyState
+│   │   │                     Pagination · CurrencyInput             [Phase 4]
+│   │   ├── config/           env.ts — typed import.meta.env
+│   │   ├── context/          AuthProvider · ThemeProvider           [Phase 3]
+│   │   ├── hooks/            useTransactions · useProfile · useToast
+│   │   ├── lib/              queryClient · formatters               [Phase 4]
+│   │   ├── pages/
+│   │   │   ├── app/          Overview · Analytics · Transactions · Settings
+│   │   │   │                 Budgets · Goals · Accounts        [Phases 5–6]
+│   │   │   ├── auth/         SignUp · SignIn · ForgotPassword
+│   │   │   │                 ResetPassword · VerifyEmail           [Phase 3]
+│   │   │   └── ledgerContext.ts   typed Outlet context for the app pages
+│   │   ├── schemas/          Zod schemas shared by forms and parsing [Phase 4]
+│   │   ├── test/             Vitest setup and factories
+│   │   ├── types/            interfaces and union types
+│   │   ├── utils/            dates · csv · timeSeries · periodComparison
+│   │   ├── App.tsx           router shell — owns state, hands out context
+│   │   └── main.tsx          entry point
+│   ├── Dockerfile            multi-stage build, Nginx serves the output
+│   └── .env.example
+├── backend/                  Spring Boot 4.1 · Java 21              [Phase 2]
+│   ├── src/main/java/com/primeledger/    twelve feature packages
+│   ├── src/main/resources/db/migration/  Flyway V1–V4
+│   ├── src/test/java/                    JUnit 5 unit tests
+│   ├── src/integrationTest/java/         Testcontainers suite
+│   ├── .env.example
+│   └── README.md             package layout and Phase 2 starting point
+├── docs/
+│   ├── architecture.md
+│   ├── api.md
+│   └── adr/                  architecture decision records
+├── .github/workflows/        frontend-ci · backend-ci · deploy      [Phase 8]
+├── docker-compose.yml        local Postgres, plus the API from Phase 2
+└── README.md
 ```
+
+Backend packages are organised **by feature, not by layer** — controller,
+service, repository, entity and DTOs for one feature live together. See
+[`backend/README.md`](backend/README.md).
 
 ---
 
