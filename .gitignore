@@ -38,5 +38,5 @@ backend/bin/
 backend/out/
 *.class
 
-# Claude Code worktrees — isolated checkouts, never part of the repo
+# Local tooling worktrees — isolated checkouts, never part of the repo
 .claude/worktrees/
