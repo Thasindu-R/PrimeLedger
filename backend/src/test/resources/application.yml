@@ -1,0 +1,16 @@
+# Unit tests never touch a database or a network. Only the properties the web
+# layer needs to start are defined here; the Testcontainers suite has its own
+# configuration.
+primeledger:
+  cors:
+    allowed-origins: http://localhost:5173
+  api:
+    base-url: http://localhost:8080
+  dev:
+    user-id: 00000000-0000-4000-8000-000000000001
+  seed-demo-data: false
+
+logging:
+  level:
+    root: WARN
+    com.primeledger: INFO

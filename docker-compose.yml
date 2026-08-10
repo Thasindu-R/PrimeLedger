@@ -1,11 +1,11 @@
 # Local development stack (proposal §13.4).
 #
-# Postgres alone is enough for Phase 2 — run the API from your IDE or with
-# `./gradlew bootRun` against it. The `backend` service is commented out until
-# Phase 2 adds backend/Dockerfile and the Gradle build; uncomment it then.
+#   docker compose up -d db        # Postgres only — run the API from your IDE
+#                                  # or with `./gradlew bootRun`
+#   docker compose up -d           # the whole stack, API included
+#   docker compose logs -f backend
 #
-#   docker compose up -d db
-#   docker compose logs -f
+# The API is on :8080 (Swagger UI at /swagger-ui.html), Postgres on :5432.
 
 services:
   db:
@@ -25,21 +25,20 @@ services:
       timeout: 5s
       retries: 10
 
-  # backend:
-  #   build: ./backend
-  #   container_name: primeledger-api
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #   environment:
-  #     SPRING_PROFILES_ACTIVE: dev
-  #     DATABASE_URL: jdbc:postgresql://db:5432/primeledger
-  #     DATABASE_USER: primeledger
-  #     DATABASE_PASSWORD: primeledger
-  #   env_file:
-  #     - ./backend/.env
-  #   ports:
-  #     - "8080:8080"
+  backend:
+    build: ./backend
+    container_name: primeledger-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DATABASE_URL: jdbc:postgresql://db:5432/primeledger
+      DATABASE_USER: primeledger
+      DATABASE_PASSWORD: primeledger
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+    ports:
+      - "8080:8080"
 
 volumes:
   primeledger-db-data:

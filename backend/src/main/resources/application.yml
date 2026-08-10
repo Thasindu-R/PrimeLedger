@@ -1,0 +1,120 @@
+spring:
+  application:
+    name: primeledger-api
+
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/primeledger}
+    username: ${DATABASE_USER:primeledger}
+    password: ${DATABASE_PASSWORD:primeledger}
+    hikari:
+      pool-name: primeledger-pool
+      maximum-pool-size: 10
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema in every environment. Hibernate never mutates it
+      # (proposal §5.1) — it only checks that the mapping still matches, which
+      # turns a drifted entity into a start-up failure instead of a runtime one.
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+      hibernate.jdbc.batch_size: 50
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+
+  jackson:
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: false
+
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: ${PORT:8080}
+  error:
+    whitelabel:
+      enabled: false
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      # /actuator/health/readiness and /liveness (FR-40).
+      probes:
+        enabled: true
+      show-details: never
+  health:
+    db:
+      enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+primeledger:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  api:
+    base-url: ${API_BASE_URL:http://localhost:8080}
+  dev:
+    # Phase 2 has no authentication; every request is attributed to this user
+    # until the Phase 3 JWT converter replaces the provider.
+    user-id: 00000000-0000-4000-8000-000000000001
+
+logging:
+  level:
+    com.primeledger: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+logging:
+  level:
+    com.primeledger: DEBUG
+    org.hibernate.SQL: DEBUG
+
+primeledger:
+  seed-demo-data: true
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jpa:
+    properties:
+      hibernate.jdbc.batch_size: 100
+
+# One JSON object per line, so the log aggregator gets fields rather than a
+# string it has to guess at. The requestId set by RequestCorrelationFilter rides
+# along in the MDC (proposal §12, Phase 2).
+logging:
+  structured:
+    format:
+      console: ecs
+
+springdoc:
+  # The spec stays available for CI to diff; the interactive UI does not ship to
+  # production (proposal §5.1).
+  swagger-ui:
+    enabled: false
+
+primeledger:
+  seed-demo-data: false

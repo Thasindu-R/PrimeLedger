@@ -1,0 +1,26 @@
+# The Testcontainers suite. The datasource is supplied by @ServiceConnection
+# from the container, so nothing here points at a real database.
+spring:
+  jpa:
+    hibernate:
+      # The whole point of running against real PostgreSQL: if an entity drifts
+      # from the migration, the context fails to start and the suite goes red.
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+primeledger:
+  cors:
+    allowed-origins: http://localhost:5173
+  api:
+    base-url: http://localhost:8080
+  dev:
+    user-id: 00000000-0000-4000-8000-000000000001
+  seed-demo-data: false
+
+logging:
+  level:
+    root: WARN
+    com.primeledger: INFO
+    org.testcontainers: INFO
