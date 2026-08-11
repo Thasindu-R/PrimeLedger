@@ -37,7 +37,7 @@ class CategoryServiceTest {
 
     @BeforeEach
     void setUp() {
-        CurrentUserProvider currentUser = () -> USER;
+        CurrentUserProvider currentUser = () -> java.util.Optional.of(USER);
         service =
                 new CategoryService(
                         categories, transactions, new CategoryMapperImpl(), currentUser);

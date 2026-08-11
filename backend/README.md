@@ -2,10 +2,10 @@
 
 Spring Boot 4.1 REST API on Java 21, backed by Supabase PostgreSQL 16.
 
-**Status: Phase 2 complete.** Gradle build, `V1__initial_schema.sql`,
-transaction and category CRUD, the global exception handler, springdoc, Actuator
-and request-correlated JSON logging are in. No authentication yet — that is
-Phase 3.
+**Status: Phase 3 complete.** Supabase Auth as an OAuth2 resource server,
+row-level security on every user-owned table, and integration tests proving two
+users cannot see each other's data — on top of the Phase 2 CRUD, migrations,
+error handling, springdoc, Actuator and request-correlated JSON logging.
 
 ## Quick start
 
@@ -15,16 +15,63 @@ docker compose up -d db          # from the repo root
 ```
 
 Then open <http://localhost:8080/swagger-ui.html>. Under the `dev` profile the
-API seeds one account and eight categories for the development user, so the
-endpoints can be exercised immediately.
+API seeds an account for the development user, so the endpoints can be exercised
+immediately, and the twelve system categories arrive from `V3`.
 
-### Who is the current user?
+## Two database roles, and why it matters
 
-Phase 2 ships without authentication, but ownership exists in the schema from
-V1 and every service filters on it. `CurrentUserProvider` is the single seam:
-until Phase 3 it returns the fixed `primeledger.dev.user-id`; then a JWT-backed
-implementation displaces it via `@ConditionalOnMissingBean` and nothing else
-changes.
+This is the part to understand before changing anything about the datasource.
+
+| Role | Used by | Privileges |
+|------|---------|------------|
+| `primeledger` | Flyway | owns the schema, runs DDL |
+| `primeledger_app` | the connection pool | `SELECT/INSERT/UPDATE/DELETE` only |
+
+PostgreSQL lets a **superuser** ignore row-level security entirely, and lets a
+table's **owner** ignore it unless the table is marked `FORCE ROW LEVEL
+SECURITY`. So if the API connected as the migration role, every policy in
+`V2` would be inert — and nothing would look wrong. The application would work,
+the tests would pass, and users would be able to read each other's rows.
+
+Two things stop that. `V2` marks every user-owned table `FORCE`, and
+`RlsGuard` checks at start-up that the connected role is neither a superuser
+nor `BYPASSRLS`, refusing to boot if it is:
+
+```
+The API is connecting as 'primeledger', which bypasses row-level security
+(superuser=true, bypassrls=true). Every policy in V2 is inert...
+```
+
+`primeledger_app` is created by `V2` **without a password** — credentials do not
+belong in a migration that runs in every environment. Login is provisioned
+separately: `docker/postgres-init/` locally and in tests, and one manual
+`ALTER ROLE ... LOGIN PASSWORD` on Supabase.
+
+## Who is the current user?
+
+`CurrentUserProvider` is the single seam. In production it reads the `sub` claim
+of the validated Supabase JWT. `RlsTenantResolver` asks *that same provider* for
+the identity it stamps onto each connection as `app.user_id` — deliberately, so
+the row filter and the application's own `WHERE user_id = ?` clauses can never
+disagree about who the user is. (They did once, and the result was an API that
+silently saw an empty database.)
+
+Background work has no request to take an identity from, so it names one
+explicitly with `RunAs` — the development seeder today, the recurring-transaction
+materialiser in Phase 6. It is not a way to escape RLS: a caller names one user
+and gets exactly that user's view.
+
+### Running locally without Supabase
+
+`FIXED_USER=true` (the default under the `dev` profile) skips authentication and
+attributes every request to `primeledger.dev.user-id`. It logs a warning on every
+boot, and `SecurityConfig` refuses to start with it set under the `prod` profile.
+Row-level security still applies — this weakens authentication, not isolation.
+
+> **`JdbcTemplate` bypasses the RLS context.** The identity is set on connections
+> Hibernate hands out, so a raw `JdbcTemplate` query runs with no `app.user_id`
+> and sees nothing. That fails closed, which is the right direction, but it is
+> surprising — prefer a repository, or `EntityManager.createNativeQuery`.
 
 ## Layout
 
@@ -77,9 +124,9 @@ assumed (§9.2).
 | File | Phase | Status |
 |------|-------|--------|
 | `V1__initial_schema.sql` | 2 | ✅ applied |
-| `V2__row_level_security.sql` | 3 |
-| `V3__seed_system_categories.sql` | 3 |
-| `V4__fulltext_search_index.sql` | 7 |
+| `V2__row_level_security.sql` | 3 | ✅ applied |
+| `V3__seed_system_categories.sql` | 3 | ✅ applied |
+| `V4__fulltext_search_index.sql` | 7 | |
 
 Write `V1__initial_schema.sql` from proposal §7 **before any Java** — the schema
 is the contract everything else derives from (§A.5).
@@ -124,12 +171,31 @@ Three Spring Boot 4 specifics that are easy to trip over, all deliberate:
 - **Testcontainers 2.x** prefixes its module artifacts
   (`org.testcontainers:testcontainers-postgresql`).
 
-Security and the OAuth2 resource server are intentionally absent from the
-dependency set until Phase 3: adding the starter now would lock every endpoint
-before there is anything to authenticate with.
+Two more worth knowing about, both found the hard way:
 
-## Next: Phase 3
+- **`@AutoConfigureMockMvc` moved** to
+  `org.springframework.boot.webmvc.test.autoconfigure`.
+- **`HibernatePropertiesCustomizer` moved** to
+  `org.springframework.boot.hibernate.autoconfigure`.
 
-Supabase project and Auth, the Spring Security resource server with the JWT
-converter, `V2__row_level_security.sql`, `V3__seed_system_categories.sql`, and
-the RLS connection customiser that sets `app.user_id` per transaction.
+## Testing row-level security
+
+Integration tests come in two flavours, and the split is intentional:
+
+| Base class | Connects as | Subject |
+|---|---|---|
+| `AbstractIntegrationTest` | `primeledger` (bypasses RLS) | SQL semantics — specifications, native updates, constraints |
+| `AbstractRlsIntegrationTest` | `primeledger_app` | the policies themselves |
+
+Tests of the second kind are the ones that mean anything about security.
+`RlsIsolationIntegrationTest` issues queries with **no owner filter at all** and
+asserts they still come back empty — that is PostgreSQL enforcing isolation, not
+the repository being careful, which is the promise NFR-06 actually makes.
+`AuthIntegrationTest` does the same at the HTTP boundary with real RS256 tokens
+signed by a keypair generated for the run.
+
+## Next: Phase 4
+
+TanStack Query and the typed API client on the frontend, replacing
+`useTransactions`' internals, deleting the localStorage persistence, and wiring
+server-side pagination, filtering and sorting through the UI.

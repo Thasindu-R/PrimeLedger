@@ -60,7 +60,7 @@ class TransactionServiceTest {
 
     @BeforeEach
     void setUp() {
-        CurrentUserProvider currentUser = () -> USER;
+        CurrentUserProvider currentUser = () -> java.util.Optional.of(USER);
         service =
                 new TransactionService(
                         transactions,

@@ -122,9 +122,10 @@ class SchemaIntegrationTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("two system categories cannot share a name — NULL owners are not distinct here")
     void deduplicatesSystemCategories() {
-        jdbc.update(
-                "insert into categories (user_id, name, kind, is_system) values (null, 'Groceries', 'expense', true)");
-
+        // V3 seeds 'Groceries' as a system category, so the duplicate is asserted
+        // against that row rather than one this test inserts first. The differing
+        // case is the point: the index is on lower(name), so 'groceries' and
+        // 'Groceries' are the same category and the second must be refused.
         assertThatThrownBy(
                         () ->
                                 jdbc.update(

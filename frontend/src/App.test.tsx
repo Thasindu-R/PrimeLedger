@@ -4,11 +4,16 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import App from './App';
 import { makeTransaction, seedStorage, daysFromToday } from './test/factories';
+import { TestAuthProvider } from './test/authHarness';
 
+// These tests are about the ledger, so they run as an already signed-in user.
+// The guards themselves are covered in auth/RequireAuth.test.tsx.
 function renderApp(route = '/overview') {
   return render(
     <MemoryRouter initialEntries={[route]}>
-      <App />
+      <TestAuthProvider>
+        <App />
+      </TestAuthProvider>
     </MemoryRouter>,
   );
 }

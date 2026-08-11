@@ -19,6 +19,10 @@ services:
       - "5432:5432"
     volumes:
       - primeledger-db-data:/var/lib/postgresql/data
+      # Creates the unprivileged primeledger_app role the API connects as.
+      # Postgres runs everything in this directory once, on first initialisation
+      # of an empty data volume — so after changing it, `docker compose down -v`.
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U primeledger -d primeledger"]
       interval: 5s
@@ -34,9 +38,18 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: dev
       DATABASE_URL: jdbc:postgresql://db:5432/primeledger
+      # Migrations run as the owner; requests run as the unprivileged role that
+      # row-level security actually applies to. Sharing one role would make every
+      # policy inert (see V2__row_level_security.sql).
       DATABASE_USER: primeledger
       DATABASE_PASSWORD: primeledger
+      APP_DATABASE_USER: primeledger_app
+      APP_DATABASE_PASSWORD: primeledger_app_dev
       CORS_ALLOWED_ORIGINS: http://localhost:5173
+      # No Supabase project in the default local stack, so authentication is off
+      # and every request is the fixed dev user. Set FIXED_USER=false plus
+      # SUPABASE_JWKS_URI and SUPABASE_ISSUER to exercise real tokens.
+      FIXED_USER: "true"
     ports:
       - "8080:8080"
 

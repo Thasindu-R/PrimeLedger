@@ -1,5 +1,6 @@
 package com.primeledger.security;
 
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -22,7 +23,9 @@ public class FixedUserProvider implements CurrentUserProvider {
     }
 
     @Override
-    public UUID currentUserId() {
-        return userId;
+    public Optional<UUID> currentUserIdIfPresent() {
+        // Always present, including on start-up threads — which is what lets the
+        // development seeder and the RLS context work without a request.
+        return Optional.of(userId);
     }
 }

@@ -2,10 +2,16 @@ spring:
   application:
     name: primeledger-api
 
+  # Two roles, deliberately. Row-level security is bypassed outright by a
+  # superuser and by the table owner unless FORCE is set, so the role that runs
+  # migrations cannot also be the role that serves requests — sharing one would
+  # make every policy in V2 inert while everything appeared to work. Flyway keeps
+  # the privileged role; the connection pool gets the unprivileged one that V2
+  # creates. RlsGuard checks this at start-up rather than trusting it.
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/primeledger}
-    username: ${DATABASE_USER:primeledger}
-    password: ${DATABASE_PASSWORD:primeledger}
+    username: ${APP_DATABASE_USER:primeledger_app}
+    password: ${APP_DATABASE_PASSWORD:primeledger_app_dev}
     hikari:
       pool-name: primeledger-pool
       maximum-pool-size: 10
@@ -25,6 +31,15 @@ spring:
     enabled: true
     locations: classpath:db/migration
     validate-on-migrate: true
+    # No url: Flyway reuses the application DataSource's URL and only swaps the
+    # credentials. Pinning a url here would send migrations to localhost even
+    # when the DataSource points somewhere else — which is exactly what happens
+    # under Testcontainers.
+    user: ${DATABASE_USER:primeledger}
+    password: ${DATABASE_PASSWORD:primeledger}
+    # No placeholders: the runtime role's password is provisioned per environment
+    # (docker/postgres-init locally, by hand on Supabase) rather than baked into
+    # a migration that runs everywhere.
 
   jackson:
     default-property-inclusion: non_null
@@ -64,14 +79,28 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: method
 
+# Supabase Auth. The API validates RS256 tokens against the published JWKS and
+# never holds a secret of its own (proposal §9.2).
+supabase:
+  url: ${SUPABASE_URL:}
+  jwks-uri: ${SUPABASE_JWKS_URI:}
+  issuer: ${SUPABASE_ISSUER:}
+  audience: ${SUPABASE_AUDIENCE:authenticated}
+
 primeledger:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   api:
     base-url: ${API_BASE_URL:http://localhost:8080}
+  security:
+    # Refuse to start if the runtime role can bypass row-level security. Turning
+    # this off does not disable RLS — it disables noticing that RLS is off.
+    require-rls: ${REQUIRE_RLS:true}
   dev:
-    # Phase 2 has no authentication; every request is attributed to this user
-    # until the Phase 3 JWT converter replaces the provider.
+    # When true, authentication is skipped entirely and every request is
+    # attributed to user-id below. Local development without a Supabase project
+    # only; SecurityConfig refuses to start with it under the prod profile.
+    fixed-user: ${FIXED_USER:false}
     user-id: 00000000-0000-4000-8000-000000000001
 
 logging:
@@ -91,6 +120,11 @@ logging:
 
 primeledger:
   seed-demo-data: true
+  dev:
+    # Local runs work without a Supabase project by default. Set FIXED_USER=false
+    # once SUPABASE_JWKS_URI and SUPABASE_ISSUER point at a real project to
+    # exercise the token path.
+    fixed-user: ${FIXED_USER:true}
 
 ---
 spring:
@@ -118,3 +152,8 @@ springdoc:
 
 primeledger:
   seed-demo-data: false
+  security:
+    require-rls: true
+  dev:
+    # Belt and braces: SecurityConfig also throws if this is true under prod.
+    fixed-user: false

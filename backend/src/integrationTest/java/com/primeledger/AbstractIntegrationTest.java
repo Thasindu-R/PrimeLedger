@@ -1,36 +1,58 @@
 package com.primeledger;
 
+import org.junit.jupiter.api.condition.EnabledIf;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Testcontainers;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.DockerClientFactory;
 
 /**
- * Base for every integration test: a real PostgreSQL 16, migrated by Flyway,
- * with Hibernate validating the mapping against it on start-up.
+ * Base for repository and schema tests: a real PostgreSQL 16, migrated by
+ * Flyway, with Hibernate validating the mapping against it on start-up.
  *
- * <p>Real Postgres rather than H2 because the things worth testing here —
- * check constraints, partial indexes, and from Phase 3 the row-level security
- * policies — do not exist in an in-memory substitute. §7.4 is explicit that
- * those policies must be exercised rather than assumed.
+ * <p>Real Postgres rather than H2 because the things worth testing here — check
+ * constraints, partial indexes, row-level security — do not exist in an
+ * in-memory substitute (§7.4).
  *
- * <p>{@code disabledWithoutDocker} skips the suite on a machine with no Docker
- * daemon instead of failing it; CI always has one.
+ * <p><strong>These tests connect as the privileged role, which bypasses RLS.</strong>
+ * That is deliberate. Their subject is SQL semantics — does this specification
+ * generate the right predicate, does this native update touch the right rows —
+ * and threading an identity through every fixture would obscure that without
+ * testing anything extra. The policies themselves are proved separately, as the
+ * unprivileged role, by {@link com.primeledger.security.RlsIsolationIntegrationTest}
+ * and {@link com.primeledger.security.AuthIntegrationTest}. Keeping the two
+ * concerns in different suites is what stops either from quietly weakening.
  */
-@SpringBootTest
-@Testcontainers(disabledWithoutDocker = true)
+@SpringBootTest(
+        properties = {
+            // No JWKS to reach in tests; identity comes from RunAs.
+            "primeledger.dev.fixed-user=true",
+            // The privileged role legitimately bypasses RLS here, so the start-up
+            // guard would fail every one of these tests for the wrong reason.
+            "primeledger.security.require-rls=false",
+        })
+@EnabledIf("dockerAvailable")
 public abstract class AbstractIntegrationTest {
 
-    @ServiceConnection
-    static final PostgreSQLContainer<?> POSTGRES =
-            new PostgreSQLContainer<>("postgres:16-alpine")
-                    .withDatabaseName("primeledger")
-                    .withUsername("primeledger")
-                    .withPassword("primeledger");
+    @DynamicPropertySource
+    static void datasource(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", PostgresContainer.INSTANCE::getJdbcUrl);
+        registry.add("spring.datasource.username", () -> PostgresContainer.ADMIN_USER);
+        registry.add("spring.datasource.password", () -> PostgresContainer.ADMIN_PASSWORD);
+        registry.add("spring.flyway.user", () -> PostgresContainer.ADMIN_USER);
+        registry.add("spring.flyway.password", () -> PostgresContainer.ADMIN_PASSWORD);
+    }
 
-    static {
-        // Started once for the whole suite and reused: a container per test class
-        // would dominate the run time for no extra coverage.
-        POSTGRES.start();
+    /**
+     * Replaces {@code @Testcontainers(disabledWithoutDocker = true)}, which
+     * cannot help here: the container is started from a static initialiser so the
+     * suite shares one, and that runs before any JUnit condition is evaluated.
+     */
+    static boolean dockerAvailable() {
+        try {
+            return DockerClientFactory.instance().isDockerAvailable();
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 }

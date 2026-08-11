@@ -1,13 +1,34 @@
 # API reference
 
-> **Status: Phase 2.** Transactions and categories are live. springdoc serves
-> the interactive Swagger UI at `/swagger-ui.html` and the spec at
-> `/v3/api-docs`; this file carries the hand-written context a generated spec
-> cannot: conventions, error semantics, and the rules a caller has to know.
->
-> **No authentication yet.** Until Phase 3 every request is attributed to one
-> configured development user (`primeledger.dev.user-id`). Services already
-> filter by owner, so the wiring does not change — only where the id comes from.
+> **Status: Phase 3.** Transactions and categories are live and every endpoint
+> requires a Supabase bearer token. springdoc serves the interactive Swagger UI
+> at `/swagger-ui.html` and the spec at `/v3/api-docs`; this file carries the
+> hand-written context a generated spec cannot: conventions, error semantics,
+> and the rules a caller has to know.
+
+## Authentication
+
+Send the Supabase access token as a bearer token on every request except the
+health probes and the docs:
+
+```
+Authorization: Bearer <supabase-access-token>
+```
+
+The API validates the RS256 signature against the project's cached JWKS and
+checks issuer, audience and expiry. It never calls Supabase per request and
+never sees a password. The `sub` claim becomes the user id.
+
+| Response | Meaning |
+|---|---|
+| 401 | absent, malformed, expired, wrongly signed, or wrong issuer/audience |
+| 403 | authenticated but not permitted (unused so far) |
+| 404 | the row does not exist **or** belongs to someone else |
+
+Isolation does not rest on this layer. Every user-owned table carries a
+row-level security policy comparing the row's owner against `app.user_id`, which
+the backend sets from the validated token at the start of each transaction. A
+query that forgets its owner filter returns nothing rather than everything.
 
 ## Conventions
 
@@ -17,7 +38,7 @@
 | Local | `http://localhost:8080/api/v1` |
 | Swagger UI | `/swagger-ui.html` *(from Phase 2)* |
 | Health | `/actuator/health` |
-| Auth | `Authorization: Bearer <supabase-jwt>` on every endpoint except health |
+| Auth | `Authorization: Bearer <supabase-jwt>` on every endpoint except health and docs |
 
 - Amounts are **decimal strings** (`"1250.00"`), never JSON numbers — floats
   lose cents.
@@ -90,3 +111,8 @@ A category still used by transactions cannot be deleted outright: pass
 refused with 422 and a count of the rows in the way. System categories
 (`system: true`) are visible to everyone and editable by no one — modifying one
 is a 422, not a 404, because the caller can plainly see it exists.
+
+The twelve system categories are seeded by `V3__seed_system_categories.sql` and
+are shared reference data: a row-level security policy makes them readable by
+every user and writable by none, so the 422 above is a courtesy on top of a
+constraint the database enforces regardless.

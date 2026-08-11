@@ -13,6 +13,13 @@ import { OverviewPage } from './pages/app/OverviewPage';
 import { AnalyticsPage } from './pages/app/AnalyticsPage';
 import { TransactionsPage } from './pages/app/TransactionsPage';
 import { SettingsPage } from './pages/app/SettingsPage';
+import { RequireAnonymous, RequireAuth } from './auth/RequireAuth';
+import { useAuth } from './auth/authContext';
+import { SignInPage } from './pages/auth/SignInPage';
+import { SignUpPage } from './pages/auth/SignUpPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
+import { VerifyEmailPage } from './pages/auth/VerifyEmailPage';
 import type { LedgerContext } from './pages/ledgerContext';
 import { buildMonthlySeries } from './utils/timeSeries';
 import { averagePerActiveMonth, computePeriodDeltas } from './utils/periodComparison';
@@ -27,6 +34,13 @@ function AppShell() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const { toasts, showToast, removeToast } = useToast();
   const { displayName, setDisplayName, handle } = useProfile();
+  const { signOut } = useAuth();
+
+  // No navigate() afterwards: clearing the session makes RequireAuth redirect,
+  // so doing both would be a redirect racing a redirect.
+  const handleSignOut = () => {
+    void signOut();
+  };
 
   const {
     transactions,
@@ -134,9 +148,7 @@ function AppShell() {
         userName={displayName}
         userHandle={handle}
         recentTransactions={recentTransactions}
-        onSignOut={() =>
-          showToast('Accounts arrive in the next phase — nothing to sign out of yet.', 'info')
-        }
+        onSignOut={handleSignOut}
       />
       <PageHeader
         userName={displayName}
@@ -178,13 +190,27 @@ function AppShell() {
 export default function App() {
   return (
     <Routes>
-      <Route element={<AppShell />}>
-        <Route index element={<Navigate to="/overview" replace />} />
-        <Route path="/overview" element={<OverviewPage />} />
-        <Route path="/analytics" element={<AnalyticsPage />} />
-        <Route path="/transactions" element={<TransactionsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to="/overview" replace />} />
+      {/* Anonymous-only: someone already signed in is sent to their ledger. */}
+      <Route element={<RequireAnonymous />}>
+        <Route path="/signin" element={<SignInPage />} />
+        <Route path="/signup" element={<SignUpPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      </Route>
+
+      {/* Reached from an emailed link, which carries its own session, so these
+          sit outside both guards. */}
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
+
+      <Route element={<RequireAuth />}>
+        <Route element={<AppShell />}>
+          <Route index element={<Navigate to="/overview" replace />} />
+          <Route path="/overview" element={<OverviewPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/transactions" element={<TransactionsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="*" element={<Navigate to="/overview" replace />} />
+        </Route>
       </Route>
     </Routes>
   );

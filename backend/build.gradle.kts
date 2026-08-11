@@ -20,7 +20,7 @@ plugins {
 }
 
 group = "com.primeledger"
-version = "0.2.0"
+version = "0.3.0"
 description = "PrimeLedger REST API"
 
 val mapstructVersion = "1.6.3"
@@ -86,10 +86,11 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
 
-    // Spring Security and the OAuth2 resource server arrive in Phase 3 together
-    // with the JWT converter and the RLS connection customiser. Adding the
-    // starter now would lock every endpoint before there is anything to
-    // authenticate with — Phase 2 is explicitly "no auth yet" (proposal §12).
+    // Phase 3. The resource server validates Supabase's RS256 tokens against the
+    // published JWKS; no session, no shared secret, no call to Supabase per
+    // request (proposal §9.2).
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
 
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:$springdocVersion")
 
@@ -115,6 +116,10 @@ dependencies {
     // Spring Boot 4 moved the @WebMvcTest slice out of the core test starter and
     // into its own module.
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+    testImplementation("org.springframework.security:spring-security-test")
+    // Signs throwaway RS256 tokens in tests so the resource server can be
+    // exercised without a Supabase project (see JwtTestTokens).
+    testImplementation("com.nimbusds:nimbus-jose-jwt")
 
     "integrationTestCompileOnly"("org.projectlombok:lombok")
     "integrationTestAnnotationProcessor"("org.projectlombok:lombok")
@@ -125,6 +130,15 @@ dependencies {
     "integrationTestImplementation"("org.testcontainers:testcontainers-postgresql")
     "integrationTestRuntimeOnly"("org.postgresql:postgresql")
     "integrationTestRuntimeOnly"("org.flywaydb:flyway-database-postgresql")
+}
+
+// The role-provisioning script is shared by docker-compose and Testcontainers.
+// Copying it onto the integrationTest classpath rather than keeping a second
+// copy means the two cannot drift into disagreeing about the password.
+tasks.named<ProcessResources>("processIntegrationTestResources") {
+    from(file("../docker/postgres-init")) {
+        into("db/local")
+    }
 }
 
 tasks.withType<JavaCompile>().configureEach {
