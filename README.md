@@ -1,8 +1,14 @@
-# 💰 Finance Tracker
+# 💰 PrimeLedger
 
-A personal finance management web app built with **React** and **TypeScript**. Log income and expenses, track your balance, and visualize spending patterns — all stored locally in your browser with no backend required.
+A personal finance management application: a **React** and **TypeScript** frontend
+over a **Spring Boot** API backed by PostgreSQL. Log income and expenses, track
+your balance, and visualise spending patterns.
 
-> Built as a portfolio project to demonstrate React component architecture, TypeScript type safety, custom hooks, and data visualization.
+> **This README still describes the original frontend-only app.** Phases 2 and 3
+> added the API, Supabase authentication and row-level security, and the sections
+> below have not caught up — treat [backend/README.md](backend/README.md) and
+> [docs/api.md](docs/api.md) as authoritative for anything server-side. Only the
+> setup and Docker instructions have been brought up to date.
 
 ---
 
