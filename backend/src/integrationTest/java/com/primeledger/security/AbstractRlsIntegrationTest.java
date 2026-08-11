@@ -1,11 +1,11 @@
 package com.primeledger.security;
 
 import com.primeledger.PostgresContainer;
-import org.junit.jupiter.api.condition.EnabledIf;
+import com.primeledger.DockerRequired;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.DockerClientFactory;
 
 /**
  * Base for tests whose subject is row-level security itself.
@@ -34,25 +34,17 @@ import org.testcontainers.DockerClientFactory;
             "supabase.issuer=https://project.supabase.co/auth/v1",
             "primeledger.security.require-rls=true",
         })
-@EnabledIf("dockerAvailable")
+@ExtendWith(DockerRequired.class)
 public abstract class AbstractRlsIntegrationTest {
 
     @DynamicPropertySource
     static void datasource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", PostgresContainer.INSTANCE::getJdbcUrl);
+        registry.add("spring.datasource.url", PostgresContainer::jdbcUrl);
         // The runtime role: no superuser, no BYPASSRLS, subject to every policy.
         registry.add("spring.datasource.username", () -> PostgresContainer.APP_USER);
         registry.add("spring.datasource.password", () -> PostgresContainer.APP_PASSWORD);
         // Migrations need privileges the runtime role does not have.
         registry.add("spring.flyway.user", () -> PostgresContainer.ADMIN_USER);
         registry.add("spring.flyway.password", () -> PostgresContainer.ADMIN_PASSWORD);
-    }
-
-    static boolean dockerAvailable() {
-        try {
-            return DockerClientFactory.instance().isDockerAvailable();
-        } catch (RuntimeException e) {
-            return false;
-        }
     }
 }

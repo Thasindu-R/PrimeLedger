@@ -22,7 +22,8 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIf;
+import com.primeledger.DockerRequired;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -37,7 +38,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.testcontainers.DockerClientFactory;
 
 /**
  * Authentication end to end: a real HTTP request, a real Supabase-shaped token,
@@ -62,7 +62,7 @@ import org.testcontainers.DockerClientFactory;
             "supabase.issuer=https://project.supabase.co/auth/v1",
         })
 @AutoConfigureMockMvc
-@EnabledIf("dockerAvailable")
+@ExtendWith(DockerRequired.class)
 class AuthIntegrationTest {
 
     private static final JwtTestTokens TOKENS = new JwtTestTokens();
@@ -90,19 +90,11 @@ class AuthIntegrationTest {
 
     @DynamicPropertySource
     static void datasource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", PostgresContainer.INSTANCE::getJdbcUrl);
+        registry.add("spring.datasource.url", PostgresContainer::jdbcUrl);
         registry.add("spring.datasource.username", () -> PostgresContainer.APP_USER);
         registry.add("spring.datasource.password", () -> PostgresContainer.APP_PASSWORD);
         registry.add("spring.flyway.user", () -> PostgresContainer.ADMIN_USER);
         registry.add("spring.flyway.password", () -> PostgresContainer.ADMIN_PASSWORD);
-    }
-
-    static boolean dockerAvailable() {
-        try {
-            return DockerClientFactory.instance().isDockerAvailable();
-        } catch (RuntimeException e) {
-            return false;
-        }
     }
 
     @Autowired private MockMvc mockMvc;

@@ -1,10 +1,9 @@
 package com.primeledger;
 
-import org.junit.jupiter.api.condition.EnabledIf;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.DockerClientFactory;
 
 /**
  * Base for repository and schema tests: a real PostgreSQL 16, migrated by
@@ -31,28 +30,15 @@ import org.testcontainers.DockerClientFactory;
             // guard would fail every one of these tests for the wrong reason.
             "primeledger.security.require-rls=false",
         })
-@EnabledIf("dockerAvailable")
+@ExtendWith(DockerRequired.class)
 public abstract class AbstractIntegrationTest {
 
     @DynamicPropertySource
     static void datasource(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", PostgresContainer.INSTANCE::getJdbcUrl);
+        registry.add("spring.datasource.url", PostgresContainer::jdbcUrl);
         registry.add("spring.datasource.username", () -> PostgresContainer.ADMIN_USER);
         registry.add("spring.datasource.password", () -> PostgresContainer.ADMIN_PASSWORD);
         registry.add("spring.flyway.user", () -> PostgresContainer.ADMIN_USER);
         registry.add("spring.flyway.password", () -> PostgresContainer.ADMIN_PASSWORD);
-    }
-
-    /**
-     * Replaces {@code @Testcontainers(disabledWithoutDocker = true)}, which
-     * cannot help here: the container is started from a static initialiser so the
-     * suite shares one, and that runs before any JUnit condition is evaluated.
-     */
-    static boolean dockerAvailable() {
-        try {
-            return DockerClientFactory.instance().isDockerAvailable();
-        } catch (RuntimeException e) {
-            return false;
-        }
     }
 }
