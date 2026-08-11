@@ -149,7 +149,7 @@ export function SettingsContent({
         </div>
 
         <a
-          href="https://github.com/Thasindu-R/finance-tracker"
+          href="https://github.com/Thasindu-R/PrimeLedger"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 mt-6 px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 transition-colors"

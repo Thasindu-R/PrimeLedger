@@ -112,13 +112,17 @@ Make sure you have the following installed:
 **1. Clone the repository**
 
 ```bash
-git clone git@github.com:YOUR_USERNAME/finance-tracker.git
-cd finance-tracker
+git clone git@github.com:Thasindu-R/PrimeLedger.git
+cd PrimeLedger
 ```
 
 **2. Install dependencies**
 
+The frontend is a workspace of its own, so npm runs from `frontend/`, not the
+repository root.
+
 ```bash
+cd frontend
 npm install
 ```
 
@@ -130,25 +134,37 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
+**4. Optional — run the API alongside it**
+
+```bash
+docker compose up -d db     # from the repository root
+./backend/gradlew -p backend bootRun
+```
+
+The API serves <http://localhost:8080>, with Swagger UI at `/swagger-ui.html`.
+See [backend/README.md](backend/README.md) for the two database roles it uses and
+why they are separate.
+
 ---
 
 ## 🐳 Docker
 
-Run the production build inside a Docker container using Nginx:
+There is no image at the repository root — the frontend and the API each have
+their own Dockerfile.
 
-**Build the image**
-
-```bash
-docker build -t finance-tracker .
-```
-
-**Run the container**
+**Frontend** (production build served by Nginx)
 
 ```bash
-docker run -p 8080:80 finance-tracker
+docker build -t primeledger-web ./frontend
+docker run -p 8080:80 primeledger-web
 ```
 
-Open [http://localhost:8080](http://localhost:8080) in your browser.
+**The whole stack** (Postgres + API)
+
+```bash
+docker compose up -d
+docker compose logs -f backend
+```
 
 > The Dockerfile uses a **multi-stage build** — Node.js compiles and bundles the app in Stage 1, and a lightweight Nginx image serves the static output in Stage 2. The final image contains no Node.js or source files.
 

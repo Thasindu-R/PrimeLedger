@@ -128,6 +128,18 @@ class TransactionServiceTest {
         }
 
         @Test
+        @DisplayName("reads as English — the message is shown to the user")
+        void mismatchMessageIsGrammatical() {
+            when(categories.requireUsable(CATEGORY, USER))
+                    .thenReturn(category(CategoryKind.INCOME, "Salary"));
+
+            assertThatThrownBy(
+                            () -> service.create(request(LocalDate.of(2026, 8, 1), BigDecimal.ONE)))
+                    .hasMessageContaining("is an income category")
+                    .hasMessageContaining("for an expense transaction");
+        }
+
+        @Test
         @DisplayName("refuses a date past tomorrow — the server half of D-09")
         void rejectsFutureDate() {
             assertFails(

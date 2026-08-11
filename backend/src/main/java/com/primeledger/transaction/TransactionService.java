@@ -157,13 +157,27 @@ public class TransactionService {
                         ? CategoryKind.INCOME
                         : CategoryKind.EXPENSE;
         if (category.getKind() != expected) {
+            String categoryKind = category.getKind().name().toLowerCase();
+            String transactionKind = request.type().name().toLowerCase();
+
             throw ApiException.businessRule(
-                    "Category '%s' is a %s category and cannot be used for a %s transaction"
+                    "Category '%s' is %s %s category and cannot be used for %s %s transaction"
                             .formatted(
                                     category.getName(),
-                                    category.getKind().name().toLowerCase(),
-                                    request.type().name().toLowerCase()));
+                                    article(categoryKind),
+                                    categoryKind,
+                                    article(transactionKind),
+                                    transactionKind));
         }
+    }
+
+    /**
+     * "a expense" reads as a bug in the product to anyone who sees it, and this
+     * message is user-facing. Only ever applied to the two kind names, so a vowel
+     * check is the whole rule rather than an approximation of one.
+     */
+    private static String article(String word) {
+        return "aeiou".indexOf(word.charAt(0)) >= 0 ? "an" : "a";
     }
 
     /**
