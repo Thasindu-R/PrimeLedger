@@ -1,64 +1,116 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import App from './App';
-import { makeTransaction, seedStorage, daysFromToday } from './test/factories';
+import { makeTransaction, daysFromToday } from './test/factories';
 import { TestAuthProvider } from './test/authHarness';
+import { QueryHarness } from './test/queryHarness';
+import { resetFakeServer } from './test/fakeServer';
+
+// The ledger lives on a server now, so these tests seed one rather than seeding
+// localStorage. The fake applies the same filtering, sorting and aggregation the
+// real API does, so a write made through the UI is visible to the next read —
+// which is what the D-07 tests below actually assert.
+vi.mock('./api/transactions', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./api/transactions')>();
+  const fake = await import('./test/fakeServer');
+  return {
+    ...actual,
+    listTransactions: fake.listTransactions,
+    createTransaction: fake.createTransaction,
+    updateTransaction: fake.updateTransaction,
+    deleteTransaction: fake.deleteTransaction,
+    bulkDeleteTransactions: fake.bulkDeleteTransactions,
+  };
+});
+vi.mock('./api/categories', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./api/categories')>();
+  const fake = await import('./test/fakeServer');
+  return { ...actual, listCategories: fake.listCategories };
+});
+vi.mock('./api/accounts', async () => {
+  const fake = await import('./test/fakeServer');
+  return { ensureDefaultAccount: fake.ensureDefaultAccount };
+});
+vi.mock('./api/analytics', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./api/analytics')>();
+  const fake = await import('./test/fakeServer');
+  return { ...actual, fetchSummary: fake.fetchSummary };
+});
+
+beforeEach(() => resetFakeServer());
 
 // These tests are about the ledger, so they run as an already signed-in user.
 // The guards themselves are covered in auth/RequireAuth.test.tsx.
 function renderApp(route = '/overview') {
   return render(
     <MemoryRouter initialEntries={[route]}>
-      <TestAuthProvider>
-        <App />
-      </TestAuthProvider>
+      <QueryHarness>
+        <TestAuthProvider>
+          <App />
+        </TestAuthProvider>
+      </QueryHarness>
     </MemoryRouter>,
   );
 }
 
 describe('routing', () => {
-  it('redirects the root path to the overview', () => {
+  // A chart needs data to render its heading, and the pages now wait for the
+  // server before drawing anything — hence the seed and the `find` queries.
+  beforeEach(() =>
+    resetFakeServer([
+      makeTransaction({ type: 'income', category: 'Salary', categoryId: 'cat-salary', amount: 5000, date: daysFromToday(-1) }),
+      makeTransaction({ type: 'expense', category: 'Food', categoryId: 'cat-food', amount: 800, date: daysFromToday(-1) }),
+    ]),
+  );
+
+  it('redirects the root path to the overview', async () => {
     renderApp('/');
-    expect(screen.getByRole('heading', { name: /statistics/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /statistics/i })).toBeInTheDocument();
   });
 
-  it('renders the analytics page at its own URL', () => {
+  it('renders the analytics page at its own URL', async () => {
     renderApp('/analytics');
-    expect(screen.getByRole('heading', { name: /monthly net savings/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /monthly net savings/i }),
+    ).toBeInTheDocument();
   });
 
-  it('renders the transactions page at its own URL', () => {
+  it('renders the transactions page at its own URL', async () => {
     renderApp('/transactions');
-    expect(screen.getByRole('heading', { name: /all transactions/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /all transactions/i }),
+    ).toBeInTheDocument();
   });
 
-  it('renders the settings page at its own URL', () => {
+  it('renders the settings page at its own URL', async () => {
     renderApp('/settings');
-    expect(screen.getByRole('heading', { name: /^profile$/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /^profile$/i })).toBeInTheDocument();
   });
 
-  it('sends an unknown URL back to the overview', () => {
+  it('sends an unknown URL back to the overview', async () => {
     renderApp('/does-not-exist');
-    expect(screen.getByRole('heading', { name: /statistics/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /statistics/i })).toBeInTheDocument();
   });
 
   it('navigates between tabs through real links, not tab state', async () => {
     const user = userEvent.setup();
     renderApp('/overview');
 
-    const nav = screen.getByRole('navigation', { name: /sections/i });
+    const nav = await screen.findByRole('navigation', { name: /sections/i });
     const analyticsLink = within(nav).getByRole('link', { name: /analytics/i });
     expect(analyticsLink).toHaveAttribute('href', '/analytics');
 
     await user.click(analyticsLink);
-    expect(screen.getByRole('heading', { name: /monthly net savings/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /monthly net savings/i }),
+    ).toBeInTheDocument();
   });
 
-  it('marks the current section as active for assistive technology', () => {
+  it('marks the current section as active for assistive technology', async () => {
     renderApp('/transactions');
-    const nav = screen.getByRole('navigation', { name: /sections/i });
+    const nav = await screen.findByRole('navigation', { name: /sections/i });
     expect(within(nav).getByRole('link', { name: /transactions/i })).toHaveAttribute(
       'aria-current',
       'page',
@@ -67,37 +119,41 @@ describe('routing', () => {
 });
 
 describe('overview panels (D-06)', () => {
-  it('renders the income panel alongside the expenses panel', () => {
-    seedStorage([
-      makeTransaction({ type: 'income', category: 'Salary', amount: 5000, date: daysFromToday(-1) }),
-      makeTransaction({ type: 'expense', category: 'Food', amount: 800, date: daysFromToday(-1) }),
+  it('renders the income panel alongside the expenses panel', async () => {
+    resetFakeServer([
+      makeTransaction({ type: 'income', category: 'Salary', categoryId: 'cat-salary', amount: 5000, date: daysFromToday(-1) }),
+      makeTransaction({ type: 'expense', category: 'Food', categoryId: 'cat-food', amount: 800, date: daysFromToday(-1) }),
     ]);
     renderApp('/overview');
 
-    expect(screen.getByRole('heading', { name: /all income/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /all income/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /all expenses/i })).toBeInTheDocument();
   });
 });
 
 describe('period deltas (D-05)', () => {
-  it('does not present fabricated month-over-month percentages', () => {
-    seedStorage([
+  it('does not present fabricated month-over-month percentages', async () => {
+    resetFakeServer([
       makeTransaction({ type: 'income', amount: 5000, date: daysFromToday(0) }),
     ]);
     renderApp('/overview');
+
+    await screen.findByRole('heading', { name: /statistics/i });
 
     for (const fabricated of ['6.7%', '9.8%', '-8.6%', '8.7%']) {
       expect(screen.queryByText(new RegExp(fabricated.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))).toBeNull();
     }
   });
 
-  it('says so plainly when there is no prior month to compare against', () => {
-    seedStorage([
+  it('says so plainly when there is no prior month to compare against', async () => {
+    resetFakeServer([
       makeTransaction({ type: 'income', amount: 5000, date: daysFromToday(0) }),
     ]);
     renderApp('/overview');
 
-    expect(screen.getAllByText(/no prior month/i).length).toBeGreaterThan(0);
+    // The deltas are computed from the server's monthly buckets now, but the
+    // honesty rule is unchanged: no prior month means no percentage.
+    expect((await screen.findAllByText(/no prior month/i)).length).toBeGreaterThan(0);
   });
 });
 
@@ -106,7 +162,7 @@ describe('adding and editing transactions (D-07)', () => {
     const user = userEvent.setup();
     renderApp('/overview');
 
-    await user.click(screen.getByRole('button', { name: /add transaction/i }));
+    await user.click(await screen.findByRole('button', { name: /add transaction/i }));
     const dialog = await screen.findByRole('dialog');
     await user.type(within(dialog).getByLabelText(/description/i), 'Consulting fee');
     await user.type(within(dialog).getByLabelText(/amount/i), '12000');
@@ -117,12 +173,18 @@ describe('adding and editing transactions (D-07)', () => {
 
   it('edits an existing transaction through the same form', async () => {
     const user = userEvent.setup();
-    seedStorage([
-      makeTransaction({ description: 'Bus fare', amount: 100, date: daysFromToday(0) }),
+    resetFakeServer([
+      makeTransaction({
+        description: 'Bus fare',
+        amount: 100,
+        category: 'Food',
+        categoryId: 'cat-food',
+        date: daysFromToday(0),
+      }),
     ]);
     renderApp('/overview');
 
-    await user.click(screen.getByRole('button', { name: /edit bus fare/i }));
+    await user.click(await screen.findByRole('button', { name: /edit bus fare/i }));
     const dialog = await screen.findByRole('dialog');
     const amount = within(dialog).getByLabelText(/amount/i);
     await user.clear(amount);
@@ -135,10 +197,67 @@ describe('adding and editing transactions (D-07)', () => {
   });
 });
 
+describe('figures that describe the ledger, not the page', () => {
+  // 30 rows against a 25-row page. Everything below was computed by reducing
+  // over the array the client held; once that array became one page, each of
+  // these silently started describing 25 rows and calling it the ledger.
+  function seedMoreThanOnePage() {
+    const rows = Array.from({ length: 29 }, (_, i) =>
+      makeTransaction({
+        type: 'expense',
+        category: 'Food',
+        categoryId: 'cat-food',
+        amount: 10,
+        date: `2026-08-${String((i % 28) + 1).padStart(2, '0')}`,
+      }),
+    );
+    // Dated oldest, so the default newest-first sort pushes it off page one.
+    rows.push(
+      makeTransaction({
+        type: 'expense',
+        category: 'Food',
+        categoryId: 'cat-food',
+        amount: 9999,
+        date: '2025-01-01',
+      }),
+    );
+    resetFakeServer(rows);
+  }
+
+  it('counts every transaction, not the 25 on screen', async () => {
+    seedMoreThanOnePage();
+    renderApp('/analytics');
+
+    expect(await screen.findByText('30')).toBeInTheDocument();
+  });
+
+  it('finds the highest expense even when it is not on the current page', async () => {
+    seedMoreThanOnePage();
+    renderApp('/analytics');
+
+    // 9,999 is the oldest row and therefore absent from page one entirely.
+    expect(await screen.findByText(/9,999\.00/)).toBeInTheDocument();
+  });
+
+  it('reports the whole ledger in the settings count and its delete warning', async () => {
+    const user = userEvent.setup();
+    seedMoreThanOnePage();
+    renderApp('/settings');
+
+    expect(await screen.findByText(/30 transactions/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /clear all transactions/i }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/all 30 transactions/i)).toBeInTheDocument();
+  });
+});
+
 describe('identity (D-08)', () => {
-  it('greets a generic user rather than a hard-coded name', () => {
+  it('greets a generic user rather than a hard-coded name', async () => {
     renderApp('/overview');
-    expect(screen.getByRole('heading', { name: /good morning, guest/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: /good morning, guest/i }),
+    ).toBeInTheDocument();
     expect(screen.queryByText('@thasindu')).toBeNull();
   });
 });

@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useTransactions } from './hooks/useTransactions';
+import { LocalDataMigration } from './components/LocalDataMigration';
+import { hasAnsweredMigration, readLegacyTransactions } from './lib/localMigration';
 import { useProfile } from './hooks/useProfile';
 import { TopNavBar } from './components/TopNavBar';
 import { PageHeader } from './components/PageHeader';
@@ -21,9 +23,8 @@ import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 import { VerifyEmailPage } from './pages/auth/VerifyEmailPage';
 import type { LedgerContext } from './pages/ledgerContext';
-import { buildMonthlySeries } from './utils/timeSeries';
-import { averagePerActiveMonth, computePeriodDeltas } from './utils/periodComparison';
 import type { Transaction } from './types';
+import type { TransactionInput } from './api/transactions';
 
 function AppShell() {
   const [editing, setEditing] = useState<Transaction | undefined>(undefined);
@@ -42,14 +43,20 @@ function AppShell() {
     void signOut();
   };
 
+  const ledger = useTransactions({ showToast });
   const {
     transactions,
-    sortedTransactions,
+    recentTransactions,
+    categories,
+    account,
     addTransaction,
     editTransaction,
     deleteTransaction,
     clearAll,
     summary,
+    deltas,
+    monthlySeries,
+    averageMonthly,
     expenseByCategory,
     incomeByCategory,
     updateFilters,
@@ -58,21 +65,13 @@ function AppShell() {
     sort,
     setSort,
     updateSort,
-    recentTransactions,
-  } = useTransactions();
+    canWrite,
+  } = ledger;
 
-  // Bucketed by YYYY-MM over an explicit 12-month window (D-02).
-  const monthlySeries = useMemo(
-    () => buildMonthlySeries(transactions, { months: 12 }),
-    [transactions],
-  );
-
-  // Real month-over-month change, replacing the hard-coded literals (D-05).
-  const deltas = useMemo(() => computePeriodDeltas(transactions), [transactions]);
-
-  const averageMonthly = useMemo(
-    () => averagePerActiveMonth(monthlySeries),
-    [monthlySeries],
+  // Read once, on mount: the offer is about data that was already there, and it
+  // must not reappear every time a query refetches.
+  const [legacy, setLegacy] = useState(() =>
+    hasAnsweredMigration() ? [] : readLegacyTransactions(),
   );
 
   const openAddForm = () => {
@@ -87,13 +86,15 @@ function AppShell() {
     setIsFormOpen(true);
   };
 
-  const handleSubmit = (data: Omit<Transaction, 'id'>) => {
+  // The toast now follows the server's answer rather than the click, so it is
+  // raised by the mutation in useTransactions — saying "Transaction added!"
+  // before the request has been accepted is how a failed write looks like a
+  // successful one.
+  const handleSubmit = (data: TransactionInput) => {
     if (editing) {
       editTransaction(editing.id, data);
-      showToast('Transaction updated.', 'success');
     } else {
       addTransaction(data);
-      showToast('Transaction added!', 'success');
     }
     setEditing(undefined);
   };
@@ -103,7 +104,6 @@ function AppShell() {
   const handleConfirmDelete = () => {
     if (pendingDeleteId) {
       deleteTransaction(pendingDeleteId);
-      showToast('Transaction deleted.', 'info');
     }
     setPendingDeleteId(null);
   };
@@ -111,7 +111,6 @@ function AppShell() {
   // The settings page confirms this with its own dialog before calling through.
   const handleClearAll = () => {
     clearAll();
-    showToast('All data cleared.', 'error');
   };
 
   const handleUserNameChange = (name: string) => {
@@ -121,22 +120,41 @@ function AppShell() {
 
   const context: LedgerContext = {
     transactions,
-    sortedTransactions,
     summary,
+    ledgerCount: ledger.ledgerCount,
+    highestExpense: ledger.highestExpense,
     deltas,
     monthlySeries,
     averageMonthly,
     incomeByCategory,
     expenseByCategory,
+
+    isLoading: ledger.isLoading,
+    isFetching: ledger.isFetching,
+    error: ledger.error,
+    refetch: ledger.refetch,
+    analyticsLoading: ledger.analyticsLoading,
+    analyticsError: ledger.analyticsError,
+    refetchAnalytics: ledger.refetchAnalytics,
+
+    page: ledger.page,
+    setPage: ledger.setPage,
+    pageSize: ledger.pageSize,
+    totalPages: ledger.totalPages,
+    totalElements: ledger.totalElements,
+
     filters,
     updateFilters,
     resetFilters,
     sort,
     setSort,
     updateSort,
+    fetchAllMatching: ledger.fetchAllMatching,
+    fetchAllTransactions: ledger.fetchAllTransactions,
     requestDelete: setPendingDeleteId,
     requestEdit,
     clearAll: handleClearAll,
+    isClearing: ledger.isMutating,
     userName: displayName,
     onUserNameChange: handleUserNameChange,
     showToast,
@@ -156,6 +174,16 @@ function AppShell() {
       />
 
       <main className="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 transition-all duration-200">
+        {legacy.length > 0 && (
+          <LocalDataMigration
+            legacy={legacy}
+            categories={categories}
+            account={account}
+            onDone={() => setLegacy([])}
+            showToast={showToast}
+          />
+        )}
+
         {/* A fault in one page must not blank the shell around it (FR-43). */}
         <ErrorBoundary>
           <Outlet context={context} />
@@ -166,6 +194,8 @@ function AppShell() {
         key={formSession}
         isOpen={isFormOpen}
         transaction={editing}
+        categories={categories}
+        canSubmit={canWrite}
         onClose={() => {
           setIsFormOpen(false);
           setEditing(undefined);

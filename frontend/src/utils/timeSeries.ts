@@ -40,20 +40,60 @@ export function monthKey(isoDate: string): string {
   return isoDate.slice(0, 7);
 }
 
+/** A month's totals as the server reports them: only months with activity. */
+export interface MonthlyBucket {
+  key: string;
+  income: number;
+  expense: number;
+}
+
 /**
  * Buckets transactions by `YYYY-MM` over an explicit window (D-02). The previous
  * implementation grouped on `getMonth()` alone, which summed January 2025 into
  * January 2026.
+ *
+ * <p>Since Phase 4 the server does this grouping, over rows the browser never
+ * sees; this remains for the localStorage migration, which has to summarise
+ * local data before it has been uploaded. Both paths end in
+ * {@link buildSeriesFromBuckets}, so the window and the labels are decided once.
  */
 export function buildMonthlySeries(
   transactions: Transaction[],
+  options: MonthlySeriesOptions = {},
+): MonthlyPoint[] {
+  const totals = new Map<string, MonthlyBucket>();
+
+  for (const transaction of transactions) {
+    const key = monthKey(transaction.date);
+    const bucket = totals.get(key) ?? { key, income: 0, expense: 0 };
+    if (transaction.type === 'income') {
+      bucket.income += transaction.amount;
+    } else {
+      bucket.expense += transaction.amount;
+    }
+    totals.set(key, bucket);
+  }
+
+  return buildSeriesFromBuckets([...totals.values()], options);
+}
+
+/**
+ * Lays server-computed buckets onto the window the chart draws.
+ *
+ * <p>The server returns only the months that have activity, because a month with
+ * no rows produces no row. The chart needs a continuous axis, so the gaps are
+ * filled here — and a bucket outside the window is dropped rather than folded
+ * into the nearest month it is not part of.
+ */
+export function buildSeriesFromBuckets(
+  buckets: MonthlyBucket[],
   { months = 12, now = new Date() }: MonthlySeriesOptions = {},
 ): MonthlyPoint[] {
   const windowSize = Math.max(1, Math.trunc(months));
   const endYear = now.getUTCFullYear();
   const endMonth = now.getUTCMonth();
 
-  const buckets = new Map<string, MonthlyPoint>();
+  const window = new Map<string, MonthlyPoint>();
   const ordered: MonthlyPoint[] = [];
 
   for (let offset = windowSize - 1; offset >= 0; offset -= 1) {
@@ -68,18 +108,15 @@ export function buildMonthlySeries(
       expense: 0,
       net: 0,
     };
-    buckets.set(key, point);
+    window.set(key, point);
     ordered.push(point);
   }
 
-  for (const transaction of transactions) {
-    const point = buckets.get(monthKey(transaction.date));
+  for (const bucket of buckets) {
+    const point = window.get(bucket.key);
     if (!point) continue;
-    if (transaction.type === 'income') {
-      point.income += transaction.amount;
-    } else {
-      point.expense += transaction.amount;
-    }
+    point.income += bucket.income;
+    point.expense += bucket.expense;
   }
 
   const spansMultipleYears = new Set(ordered.map((p) => p.key.slice(0, 4))).size > 1;

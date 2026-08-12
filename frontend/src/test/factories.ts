@@ -1,4 +1,4 @@
-import type { Category, Transaction, TransactionType } from '../types';
+import type { Transaction, TransactionType } from '../types';
 import { addDays, toIsoDate } from '../utils/dates';
 
 let seq = 0;
@@ -9,7 +9,10 @@ export function makeTransaction(overrides: Partial<Transaction> = {}): Transacti
   return {
     id: `txn-${seq}`,
     type: 'expense' as TransactionType,
-    category: 'Food' as Category,
+    category: 'Food',
+    // Stable and derived from the name, so a test that cares about the id can
+    // predict it and one that does not can ignore it.
+    categoryId: `cat-${(overrides.category ?? 'Food').toLowerCase()}`,
     amount: 1000,
     date: '2026-08-01',
     description: `Transaction ${seq}`,

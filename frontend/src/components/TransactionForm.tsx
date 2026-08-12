@@ -1,12 +1,8 @@
 import { useEffect, useId, useState } from "react";
 import { Plus, X, TrendingUp, TrendingDown, AlertCircle, Save } from "lucide-react";
-import {
-  categoriesFor,
-  defaultCategoryFor,
-  type Category,
-  type Transaction,
-  type TransactionType,
-} from "../types";
+import { type Transaction, type TransactionType } from "../types";
+import { categoriesOfKind, type CategoryOption } from "../api/categories";
+import type { TransactionInput } from "../api/transactions";
 import {
   DATE_ERROR_MESSAGES,
   maxTransactionDate,
@@ -19,14 +15,23 @@ interface FormState {
   description: string;
   amount: string;
   type: TransactionType;
-  category: Category;
+  /** The category's id: what the API addresses, and what the form now holds. */
+  categoryId: string;
   date: string;
 }
 
 interface TransactionFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<Transaction, "id">) => void;
+  onSubmit: (data: TransactionInput) => void;
+  /**
+   * The categories this account has, from the server. Phase 1 derived them from
+   * a hard-coded union; they are rows now, so a user-defined category appears
+   * here without a code change (FR-17).
+   */
+  categories: CategoryOption[];
+  /** False while the account or category list is still loading, or failed. */
+  canSubmit?: boolean;
   /** When present the form edits this transaction instead of creating one (D-07). */
   transaction?: Transaction;
 }
@@ -36,7 +41,7 @@ function emptyForm(): FormState {
     description: "",
     amount: "",
     type: "income",
-    category: defaultCategoryFor("income"),
+    categoryId: "",
     date: today(),
   };
 }
@@ -47,7 +52,7 @@ function formFor(transaction: Transaction | undefined): FormState {
     description: transaction.description ?? "",
     amount: String(transaction.amount),
     type: transaction.type,
-    category: transaction.category,
+    categoryId: transaction.categoryId,
     date: transaction.date,
   };
 }
@@ -68,6 +73,8 @@ export function TransactionForm({
   isOpen,
   onClose,
   onSubmit,
+  categories: allCategories,
+  canSubmit = true,
   transaction,
 }: TransactionFormProps) {
   const isEditing = transaction !== undefined;
@@ -92,16 +99,28 @@ export function TransactionForm({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onClose]);
 
-  const categories = categoriesFor(formState.type);
+  const categories = categoriesOfKind(allCategories, formState.type);
+  // The selected id may not be in the list yet on first render, or may belong to
+  // the other type after a toggle. Falling back to the first option keeps the
+  // select and the state agreeing, which is what stops a submit with no category.
+  const selectedId =
+    categories.find((category) => category.id === formState.categoryId)?.id ??
+    categories[0]?.id ??
+    "";
 
   const handleTypeChange = (type: TransactionType) => {
-    setFormState((prev) => ({
-      ...prev,
-      type,
-      category: categoriesFor(type).includes(prev.category)
-        ? prev.category
-        : defaultCategoryFor(type),
-    }));
+    setFormState((prev) => {
+      const next = categoriesOfKind(allCategories, type);
+      return {
+        ...prev,
+        type,
+        // An income category cannot hold an expense — the server rejects it with
+        // a 422, so the form must not offer it in the first place.
+        categoryId: next.some((category) => category.id === prev.categoryId)
+          ? prev.categoryId
+          : (next[0]?.id ?? ""),
+      };
+    });
     setError(null);
   };
 
@@ -126,9 +145,14 @@ export function TransactionForm({
       return;
     }
 
+    if (!selectedId) {
+      setError("Please choose a category");
+      return;
+    }
+
     onSubmit({
       type: formState.type,
-      category: formState.category,
+      categoryId: selectedId,
       amount,
       date: formState.date,
       description: formState.description.trim(),
@@ -255,20 +279,22 @@ export function TransactionForm({
             </label>
             <select
               id={categoryId}
-              value={formState.category}
+              value={selectedId}
+              disabled={categories.length === 0}
               onChange={(e) =>
-                setFormState({
-                  ...formState,
-                  category: e.target.value as Category,
-                })
+                setFormState({ ...formState, categoryId: e.target.value })
               }
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-base sm:text-sm outline-none focus:ring-2 focus:ring-green-300 focus:border-transparent bg-white"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-base sm:text-sm outline-none focus:ring-2 focus:ring-green-300 focus:border-transparent bg-white disabled:bg-gray-50 disabled:text-gray-400"
             >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
+              {categories.length === 0 ? (
+                <option value="">Loading categories…</option>
+              ) : (
+                categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))
+              )}
             </select>
           </div>
 
@@ -304,7 +330,8 @@ export function TransactionForm({
           {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl text-base sm:text-sm font-semibold transition-colors flex items-center justify-center gap-2 mt-6"
+            disabled={!canSubmit}
+            className="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl text-base sm:text-sm font-semibold transition-colors flex items-center justify-center gap-2 mt-6 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
             {isEditing ? <Save size={16} /> : <Plus size={16} />}
             {isEditing ? "Save changes" : "Add Transaction"}

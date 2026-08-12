@@ -31,7 +31,9 @@ function renderSettings(
       userName="Ada"
       onUserNameChange={onUserNameChange}
       onClearAll={onClearAll}
-      transactions={[makeTransaction()]}
+      transactionCount={1}
+      isClearing={false}
+      fetchAllTransactions={async () => [makeTransaction()]}
       {...props}
     />,
   );
@@ -39,7 +41,7 @@ function renderSettings(
 }
 
 describe('SettingsContent export (D-03)', () => {
-  it('exports the transactions it was given instead of reading storage directly', async () => {
+  it('exports what the server returns instead of reading storage directly', async () => {
     const user = userEvent.setup();
     const download = captureDownload();
     // Storage holds a different row — if the component reads storage, it shows up here.
@@ -47,19 +49,46 @@ describe('SettingsContent export (D-03)', () => {
     const getItem = vi.spyOn(Storage.prototype, 'getItem');
 
     renderSettings({
-      transactions: [makeTransaction({ description: 'row from props' })],
+      fetchAllTransactions: async () => [
+        makeTransaction({ description: 'row from the server' }),
+      ],
     });
     await user.click(screen.getByRole('button', { name: /^export$/i }));
 
     const csv = await download.text();
-    expect(csv).toContain('row from props');
+    expect(csv).toContain('row from the server');
     expect(csv).not.toContain('stale storage row');
     expect(getItem).not.toHaveBeenCalledWith('finance_tracker_transactions');
   });
 
-  it('reports the count from the transactions it was given', () => {
-    renderSettings({ transactions: [makeTransaction(), makeTransaction()] });
-    expect(screen.getByText(/2 transactions/i)).toBeInTheDocument();
+  it('exports every row, not just the page the user was looking at', async () => {
+    const user = userEvent.setup();
+    const download = captureDownload();
+
+    // The Settings export says "all data" and has to mean it: the page on
+    // screen holds 25 rows at most, and the ledger holds far more.
+    renderSettings({
+      transactionCount: 120,
+      fetchAllTransactions: async () =>
+        Array.from({ length: 120 }, (_, i) =>
+          makeTransaction({ description: `row ${i}` }),
+        ),
+    });
+    await user.click(screen.getByRole('button', { name: /^export$/i }));
+
+    const csv = await download.text();
+    expect(csv).toContain('row 0');
+    expect(csv).toContain('row 119');
+  });
+
+  it('reports the count the server gave, not the size of a page', () => {
+    renderSettings({ transactionCount: 384 });
+    expect(screen.getByText(/384 transactions/i)).toBeInTheDocument();
+  });
+
+  it('no longer claims the data lives in the browser', () => {
+    renderSettings({ transactionCount: 3 });
+    expect(screen.queryByText(/locally in your browser/i)).toBeNull();
   });
 });
 

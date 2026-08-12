@@ -12,14 +12,26 @@ import {
 } from 'recharts';
 import { Hash, TrendingDown, PiggyBank } from 'lucide-react';
 import { formatCurrency, formatChartAxis } from '../utils/formatCurrency';
-import { buildMonthlySeries } from '../utils/timeSeries';
+import type { MonthlyPoint } from '../utils/timeSeries';
 import type { ChartTooltipProps } from './chartTooltip';
 import type { CategoryBreakdown } from '../hooks/useTransactions';
-import type { Transaction, Summary } from '../types';
+import type { Summary } from '../types';
 
+/**
+ * Every figure here describes the whole ledger, so every figure is computed by
+ * the server and passed in.
+ *
+ * <p>This component used to reduce over a `transactions` array, which was the
+ * entire ledger held in memory. Once the list became a page, those same
+ * reductions kept working and started lying: the count became the page size and
+ * the highest expense became the largest row that happened to be on screen.
+ */
 interface AnalyticsContentProps {
-  transactions: Transaction[];
   summary: Summary;
+  /** Transactions in the ledger, not on the page. */
+  transactionCount: number;
+  highestExpense: number;
+  monthlySeries: MonthlyPoint[];
   expenseByCategory: CategoryBreakdown[];
   incomeByCategory: CategoryBreakdown[];
 }
@@ -51,17 +63,13 @@ function NetSavingsTooltip({ active, payload, label }: ChartTooltipProps) {
 }
 
 export function AnalyticsContent({
-  transactions,
   summary,
+  transactionCount,
+  highestExpense,
+  monthlySeries,
   expenseByCategory,
   incomeByCategory,
 }: AnalyticsContentProps) {
-  const highestExpense = useMemo(() => {
-    const expenses = transactions.filter((t) => t.type === 'expense');
-    if (expenses.length === 0) return 0;
-    return Math.max(...expenses.map((t) => t.amount));
-  }, [transactions]);
-
   const savingsRate = useMemo(() => {
     if (summary.totalIncome === 0) return 'N/A';
     const rate =
@@ -70,12 +78,10 @@ export function AnalyticsContent({
     return rate.toFixed(1) + '%';
   }, [summary.totalIncome, summary.totalExpense]);
 
-  // Bucketed by YYYY-MM over an explicit window, so the same month in two
-  // different years no longer collapses into one bar (D-02).
-  const monthlyNetData = useMemo(
-    () => buildMonthlySeries(transactions, { months: 12 }),
-    [transactions],
-  );
+  // Bucketed by YYYY-MM by the server, so the same month in two different years
+  // does not collapse into one bar (D-02) — and so the chart covers the ledger
+  // rather than the page.
+  const monthlyNetData = monthlySeries;
 
   return (
     <div className="space-y-4">
@@ -90,7 +96,7 @@ export function AnalyticsContent({
             </span>
           </div>
           <p className="text-2xl font-bold text-gray-900">
-            {transactions.length}
+            {transactionCount}
           </p>
         </div>
 

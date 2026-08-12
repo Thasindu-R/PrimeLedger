@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Download,
   ChevronUp,
@@ -8,6 +9,10 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatDate } from "../utils/formatCurrency";
 import { downloadCsv, exportFilename, transactionsToCsv } from "../utils/csv";
+import { SkeletonList } from "./ui/Skeleton";
+import { ErrorState } from "./ui/ErrorState";
+import { EmptyState } from "./ui/EmptyState";
+import { Pagination } from "./ui/Pagination";
 import type { Transaction } from "../types";
 import type {
   TransactionFilters,
@@ -21,9 +26,24 @@ interface TransactionsContentProps {
   updateFilters: (patch: Partial<TransactionFilters>) => void;
   resetFilters: () => void;
   filters: TransactionFilters;
-  sortedTransactions: Transaction[];
+  /** The current page, already filtered and sorted by the server. */
+  transactions: Transaction[];
   sort: SortConfig;
   updateSort: (field: SortField) => void;
+
+  isLoading: boolean;
+  isFetching: boolean;
+  error: unknown;
+  refetch: () => void;
+
+  page: number;
+  setPage: (page: number) => void;
+  pageSize: number;
+  totalPages: number;
+  totalElements: number;
+
+  /** Fetches every matching row, so the export is not just the page on screen. */
+  fetchAllMatching: () => Promise<Transaction[]>;
 }
 
 export function TransactionsContent({
@@ -32,14 +52,42 @@ export function TransactionsContent({
   updateFilters,
   resetFilters,
   filters,
-  sortedTransactions,
+  transactions,
   sort,
   updateSort,
+  isLoading,
+  isFetching,
+  error,
+  refetch,
+  page,
+  setPage,
+  pageSize,
+  totalPages,
+  totalElements,
+  fetchAllMatching,
 }: TransactionsContentProps) {
-  const handleExport = () => {
-    // The export honours the filters and sort currently on screen.
-    downloadCsv(transactionsToCsv(sortedTransactions), exportFilename());
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      // Honours the filters, as it always has — but the rows now live on the
+      // server, so all of them have to be fetched rather than read from memory.
+      const all = await fetchAllMatching();
+      downloadCsv(transactionsToCsv(all), exportFilename());
+    } finally {
+      setExporting(false);
+    }
   };
+
+  const hasFilters =
+    Boolean(filters.search?.trim()) ||
+    filters.type !== undefined ||
+    filters.categoryId !== undefined ||
+    filters.startDate !== undefined ||
+    filters.endDate !== undefined ||
+    filters.minAmount !== undefined ||
+    filters.maxAmount !== undefined;
 
   const handleSort = (field: SortField) => {
     updateSort(field);
@@ -65,15 +113,16 @@ export function TransactionsContent({
             All Transactions
           </h2>
           <span className="text-sm text-gray-400">
-            {sortedTransactions.length} total
+            {isLoading ? '…' : `${totalElements} total`}
           </span>
         </div>
         <button
-          onClick={handleExport}
-          className="w-full sm:w-auto flex items-center justify-center gap-2 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+          onClick={() => void handleExport()}
+          disabled={exporting || totalElements === 0}
+          className="w-full sm:w-auto flex items-center justify-center gap-2 border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Download size={15} />
-          <span>Export CSV</span>
+          <span>{exporting ? 'Preparing…' : 'Export CSV'}</span>
         </button>
       </div>
 
@@ -173,15 +222,40 @@ export function TransactionsContent({
 
       {/* Section 3 - Transaction Table */}
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-        {sortedTransactions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
-            <Receipt size={48} className="mb-3" />
-            <p className="text-sm">No transactions match your filters</p>
+        {isLoading ? (
+          <div className="p-4">
+            <SkeletonList rows={6} />
           </div>
+        ) : error ? (
+          <ErrorState error={error} onRetry={refetch} subject="your transactions" />
+        ) : transactions.length === 0 ? (
+          <EmptyState
+            icon={Receipt}
+            title={
+              hasFilters
+                ? 'No transactions match your filters'
+                : 'No transactions yet'
+            }
+            hint={
+              hasFilters
+                ? 'Try widening the date range, or clearing the search.'
+                : 'Add your first transaction and it will appear here.'
+            }
+            action={
+              hasFilters ? (
+                <button
+                  onClick={resetFilters}
+                  className="rounded-xl border border-gray-200 px-4 py-2 text-sm text-gray-600 transition-colors hover:bg-gray-50"
+                >
+                  Clear filters
+                </button>
+              ) : undefined
+            }
+          />
         ) : (
           <>
             <div className="md:hidden p-4 space-y-3">
-              {sortedTransactions.map((transaction) => (
+              {transactions.map((transaction) => (
                 <div
                   key={transaction.id}
                   className="border border-gray-100 rounded-xl p-3"
@@ -264,7 +338,7 @@ export function TransactionsContent({
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedTransactions.map((transaction) => (
+                  {transactions.map((transaction) => (
                     <tr
                       key={transaction.id}
                       className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors last:border-0"
@@ -325,6 +399,15 @@ export function TransactionsContent({
                 </tbody>
               </table>
             </div>
+
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalElements={totalElements}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              busy={isFetching}
+            />
           </>
         )}
       </div>

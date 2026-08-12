@@ -8,22 +8,31 @@ interface SettingsContentProps {
   userName: string;
   onUserNameChange: (name: string) => void;
   onClearAll: () => void;
-  /** The live transactions. Reading storage here bypassed the state seam (D-03). */
-  transactions: Transaction[];
+  /**
+   * How many transactions the account holds, from the server. Counting a page
+   * would have understated it — and understating the number on a "this will
+   * permanently delete N transactions" dialog is the worst place to be wrong.
+   */
+  transactionCount: number;
+  /** Fetches every row for the export. Reading storage here bypassed the seam (D-03). */
+  fetchAllTransactions: () => Promise<Transaction[]>;
+  isClearing: boolean;
 }
 
 export function SettingsContent({
   userName,
   onUserNameChange,
   onClearAll,
-  transactions,
+  transactionCount,
+  fetchAllTransactions,
+  isClearing,
 }: SettingsContentProps) {
   // `null` means "not edited yet", so the field follows the saved name until
   // the user types. Cheaper and more predictable than syncing via an effect.
   const [draftName, setDraftName] = useState<string | null>(null);
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const nameId = useId();
-  const transactionCount = transactions.length;
   const inputName = draftName ?? userName;
 
   const handleSaveName = () => {
@@ -31,8 +40,13 @@ export function SettingsContent({
     setDraftName(null);
   };
 
-  const handleExport = () => {
-    downloadCsv(transactionsToCsv(transactions), exportFilename());
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      downloadCsv(transactionsToCsv(await fetchAllTransactions()), exportFilename());
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleConfirmClear = () => {
@@ -97,7 +111,7 @@ export function SettingsContent({
           <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
             <Database size={20} className="text-gray-400" />
             <span className="text-sm text-gray-600">
-              {transactionCount} transactions stored locally in your browser
+              {transactionCount} transactions in your account
             </span>
           </div>
 
@@ -108,10 +122,11 @@ export function SettingsContent({
               <span className="text-sm text-gray-600">Export all data as CSV</span>
             </div>
             <button
-              onClick={handleExport}
-              className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+              onClick={() => void handleExport()}
+              disabled={isExporting || transactionCount === 0}
+              className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Export
+              {isExporting ? 'Preparing…' : 'Export'}
             </button>
           </div>
 
@@ -123,9 +138,10 @@ export function SettingsContent({
             </p>
             <button
               onClick={() => setIsConfirmingClear(true)}
-              className="w-full border border-red-200 text-red-600 hover:bg-red-50 font-medium py-2.5 rounded-xl transition-colors"
+              disabled={isClearing || transactionCount === 0}
+              className="w-full border border-red-200 text-red-600 hover:bg-red-50 font-medium py-2.5 rounded-xl transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Clear all transactions
+              {isClearing ? 'Clearing…' : 'Clear all transactions'}
             </button>
           </div>
         </div>

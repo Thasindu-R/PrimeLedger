@@ -66,7 +66,8 @@ and present on the matching log line.
 
 ## Endpoints
 
-Documented as they land. Phase 2 delivers transactions and categories.
+Documented as they land. Phase 2 delivered transactions and categories; Phase 4
+added the analytics summary and the read half of accounts.
 
 ### Transactions
 
@@ -85,9 +86,13 @@ Documented as they land. Phase 2 delivers transactions and categories.
 (case-insensitive substring of the description), `includeDeleted`.
 
 **Paging and sorting**: `page`, `size` (max 200, default 50), `sort`. Sortable
-by `occurredOn`, `amount`, `createdAt`, `description` only — anything else is
-rejected with 400 rather than silently ignored. Default order is `occurredOn`
-descending.
+by `occurredOn`, `amount`, `createdAt`, `description`, `type` and
+`category.name` only — anything else is rejected with 400 rather than silently
+ignored. Default order is `occurredOn` descending.
+
+> Enum values are **upper case** on the wire, in both directions:
+> `"type": "EXPENSE"` in a body, and `?type=EXPENSE` in a query. `?type=expense`
+> is a 400.
 
 Two rules the schema cannot express, both enforced by the service:
 
@@ -96,6 +101,61 @@ Two rules the schema cannot express, both enforced by the service:
 - `occurredOn` may not be later than tomorrow (the server half of D-09;
   tomorrow is allowed so a client in a timezone ahead of the server is not
   rejected for dating something "today").
+
+### Accounts
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/accounts` | The caller's accounts, ordered by name |
+| POST | `/accounts/default` | Idempotent: returns the caller's first account, creating `Everyday` if they have none |
+
+Phase 5 owns accounts (F-01) — creating, renaming, archiving, balances and
+transfers all arrive there. These two exist because Phase 4 could not do without
+them: `transactions.account_id` is `NOT NULL`, so a user who owns no account
+cannot record anything, and a freshly signed-up user owns none.
+
+`POST /accounts/default` is a POST rather than folded into the `GET` because it
+genuinely inserts, and a `GET` that writes is one that cannot be cached or
+retried safely. Calling it repeatedly converges on one account rather than
+accumulating them.
+
+### Analytics
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/analytics/summary` | Totals, category breakdown and monthly series |
+
+Takes the **same filter as `GET /transactions`** and applies it identically, so
+the summary always describes exactly the rows that endpoint would return.
+Unfiltered, it describes the whole ledger.
+
+```json
+{
+  "totals":  { "income": "4200.00", "expense": "1875.50", "balance": "2324.50",
+               "count": 384, "highestExpense": "899.00" },
+  "byCategory": [
+    { "categoryId": "…", "categoryName": "Groceries", "type": "EXPENSE",
+      "total": "312.75", "count": 9 }
+  ],
+  "monthly": [
+    { "month": "2026-08", "income": "4200.00", "expense": "1875.50" }
+  ]
+}
+```
+
+`monthly` is bucketed by `to_char(occurred_on, 'YYYY-MM')`, so the same month in
+two different years is two buckets — the server-side form of D-02. Only months
+with activity appear; a month with no rows produces no row, and the client fills
+the window it wants to draw.
+
+`count` and `highestExpense` are here for the same reason as the sums: derived
+from a page they would be the page size and the largest row that happened to be
+on screen.
+
+This endpoint exists because the browser stopped being able to compute these.
+Before Phase 4 the whole ledger was in memory and the dashboard reduced it
+directly; once the list is paginated the client holds one page, and summing that
+would report the current page's totals as the ledger's.
 
 ### Categories
 

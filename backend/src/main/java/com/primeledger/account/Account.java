@@ -17,9 +17,11 @@ import org.hibernate.type.SqlTypes;
 /**
  * A ledger account (F-01).
  *
- * <p>Phase 2 needs the entity because {@code transactions.account_id} is NOT
- * NULL and must point at a real row; the accounts API, balances and transfers
- * are Phase 5. Deliberately no controller yet.
+ * <p>Phase 2 needed the entity because {@code transactions.account_id} is NOT
+ * NULL and must point at a real row. Phase 4 added the read endpoint and default
+ * provisioning for the same reason, one level up: a signed-up user with no
+ * account cannot record anything. Balances, transfers and the rest of the
+ * accounts API are Phase 5.
  */
 @Entity
 @Table(name = "accounts")

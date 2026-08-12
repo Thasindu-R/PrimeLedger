@@ -12,6 +12,13 @@ import java.util.UUID;
  * behind {@link CurrentUserProvider} keeps that filtering real and testable
  * now, and makes the Phase 3 change a one-bean substitution.
  *
+ * <p>{@link RunAs} takes precedence, exactly as it does in
+ * {@link JwtCurrentUserProvider}. The two providers have to agree about this or
+ * {@code RunAs} means different things in different environments: a block that
+ * correctly acts as the named user in production would silently attribute every
+ * row it writes to the fixed development user locally, while the connection it
+ * writes over claims to be somebody else.
+ *
  * @see com.primeledger.config.CurrentUserConfig
  */
 public class FixedUserProvider implements CurrentUserProvider {
@@ -26,6 +33,6 @@ public class FixedUserProvider implements CurrentUserProvider {
     public Optional<UUID> currentUserIdIfPresent() {
         // Always present, including on start-up threads — which is what lets the
         // development seeder and the RLS context work without a request.
-        return Optional.of(userId);
+        return Optional.of(RunAs.current().orElse(userId));
     }
 }

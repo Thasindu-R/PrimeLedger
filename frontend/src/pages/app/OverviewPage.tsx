@@ -6,6 +6,9 @@ import { AllExpensesPanel } from '../../components/AllExpensesPanel';
 import { AllIncomePanel } from '../../components/AllIncomePanel';
 import { PromoBanner } from '../../components/PromoBanner';
 import { TransactionList } from '../../components/TransactionList';
+import { SkeletonCards, SkeletonChart, SkeletonList } from '../../components/ui/Skeleton';
+import { ErrorState } from '../../components/ui/ErrorState';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { useLedger } from '../ledgerContext';
 
 export function OverviewPage() {
@@ -15,7 +18,6 @@ export function OverviewPage() {
     transactions,
     monthlySeries,
     averageMonthly,
-    sortedTransactions,
     sort,
     setSort,
     requestDelete,
@@ -23,7 +25,35 @@ export function OverviewPage() {
     updateFilters,
     resetFilters,
     showToast,
+    isLoading,
+    error,
+    refetch,
+    analyticsLoading,
+    analyticsError,
+    refetchAnalytics,
+    totalElements,
   } = useLedger();
+
+  // The totals and the list load independently, so a failure in one leaves the
+  // other on screen rather than blanking the dashboard (FR-42).
+  if (analyticsError) {
+    return (
+      <ErrorState
+        error={analyticsError}
+        onRetry={refetchAnalytics}
+        subject="your dashboard"
+      />
+    );
+  }
+
+  if (analyticsLoading) {
+    return (
+      <div className="space-y-4">
+        <SkeletonCards count={3} />
+        <SkeletonChart />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -79,15 +109,30 @@ export function OverviewPage() {
       </div>
 
       {/* Transaction List */}
-      <TransactionList
-        transactions={sortedTransactions}
-        onDelete={requestDelete}
-        onEdit={requestEdit}
-        onSearchChange={(term) => updateFilters({ search: term })}
-        onTypeFilter={(type) => (type ? updateFilters({ type }) : resetFilters())}
-        onSortChange={setSort}
-        sort={sort}
-      />
+      {isLoading ? (
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4">
+          <SkeletonList rows={5} />
+        </div>
+      ) : error ? (
+        <ErrorState error={error} onRetry={refetch} subject="your transactions" />
+      ) : totalElements === 0 ? (
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm">
+          <EmptyState
+            title="Your ledger is empty"
+            hint="Add your first transaction with the button above and your balance, charts and history will fill in."
+          />
+        </div>
+      ) : (
+        <TransactionList
+          transactions={transactions}
+          onDelete={requestDelete}
+          onEdit={requestEdit}
+          onSearchChange={(term) => updateFilters({ search: term })}
+          onTypeFilter={(type) => (type ? updateFilters({ type }) : resetFilters())}
+          onSortChange={setSort}
+          sort={sort}
+        />
+      )}
     </>
   );
 }

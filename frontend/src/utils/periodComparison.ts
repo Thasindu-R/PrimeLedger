@@ -39,7 +39,10 @@ function keyFor(year: number, monthIndex: number): string {
 
 /**
  * Real month-over-month deltas, replacing the hard-coded 6.7 / 9.8 / -8.6 / 8.7
- * literals the UI used to present as fact (D-05). FR-25 moves this server-side.
+ * literals the UI used to present as fact (D-05).
+ *
+ * <p>Retained for the localStorage migration, which summarises local data before
+ * it reaches the server. The dashboard uses {@link deltasFromBuckets}.
  */
 export function computePeriodDeltas(
   transactions: Transaction[],
@@ -51,6 +54,41 @@ export function computePeriodDeltas(
   const current = totalsForMonth(transactions, keyFor(year, month));
   const previous = totalsForMonth(transactions, keyFor(year, month - 1));
 
+  return compare(current, previous);
+}
+
+/**
+ * The same deltas, from the monthly totals the server computed.
+ *
+ * <p>A month the server did not report had no activity, which is a total of
+ * zero — and `percentChange` already refuses to turn a rise from zero into a
+ * percentage, so an absent previous month correctly yields null rather than a
+ * fabricated number.
+ */
+export function deltasFromBuckets(
+  buckets: { key: string; income: number; expense: number }[],
+  now: Date = new Date(),
+): PeriodDeltas {
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+
+  const find = (key: string) => {
+    const bucket = buckets.find((candidate) => candidate.key === key);
+    if (!bucket) return { income: 0, expense: 0, balance: 0 };
+    return {
+      income: bucket.income,
+      expense: bucket.expense,
+      balance: bucket.income - bucket.expense,
+    };
+  };
+
+  return compare(find(keyFor(year, month)), find(keyFor(year, month - 1)));
+}
+
+function compare(
+  current: { income: number; expense: number; balance: number },
+  previous: { income: number; expense: number; balance: number },
+): PeriodDeltas {
   return {
     income: percentChange(current.income, previous.income),
     expense: percentChange(current.expense, previous.expense),

@@ -36,9 +36,17 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Transactions", description = "The ledger itself")
 public class TransactionController {
 
-    /** The orderings the UI offers; anything else is rejected, not ignored. */
+    /**
+     * The orderings the UI offers; anything else is rejected, not ignored.
+     *
+     * <p>{@code type} and {@code category.name} are here because the transactions
+     * table lets the user sort by those columns. Before Phase 4 that sort ran in
+     * the browser over the whole array; now that the list is paginated, sorting
+     * the page the server chose would reorder ten rows out of a thousand and look
+     * like data loss.
+     */
     private static final Set<String> SORTABLE =
-            Set.of("occurredOn", "amount", "createdAt", "description");
+            Set.of("occurredOn", "amount", "createdAt", "description", "type", "category.name");
 
     private static final Sort DEFAULT_SORT =
             Sort.by(Sort.Order.desc("occurredOn"), Sort.Order.desc("createdAt"));
