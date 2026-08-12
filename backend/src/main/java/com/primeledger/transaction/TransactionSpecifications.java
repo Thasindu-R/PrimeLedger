@@ -17,6 +17,27 @@ public final class TransactionSpecifications {
 
     private TransactionSpecifications() {}
 
+    /**
+     * The predicate for reporting: everything {@link #matching} selects, minus
+     * transfer legs.
+     *
+     * <p>This is the exclusion F-01 calls the part that separates a real ledger
+     * from a spreadsheet. Moving 500 from current to savings is not income of 500
+     * and not expenditure of 500; counting it as either — and the naive sum
+     * counts it as both — inflates the month by a thousand and reports a balance
+     * change that never happened.
+     *
+     * <p>Deliberately a second named specification rather than a flag on the
+     * filter. Which rows a *report* covers is not the caller's choice, and a
+     * boolean parameter would eventually be passed the wrong way round.
+     */
+    public static Specification<Transaction> reporting(UUID userId, TransactionFilter filter) {
+        return (root, query, cb) ->
+                cb.and(
+                        matching(userId, filter).toPredicate(root, query, cb),
+                        cb.isFalse(root.get("transfer")));
+    }
+
     public static Specification<Transaction> matching(UUID userId, TransactionFilter filter) {
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();

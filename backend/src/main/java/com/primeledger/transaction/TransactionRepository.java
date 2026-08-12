@@ -44,6 +44,42 @@ public interface TransactionRepository
             @Param("deletedAt") Instant deletedAt);
 
     /**
+     * Expenditure per category over one date window, for the budget panel (F-02).
+     *
+     * <p>Grouped rather than one query per budget, because the dashboard shows
+     * every budget at once and a query each would be an N+1 on the busiest
+     * screen in the app.
+     *
+     * <p>Transfers are excluded, and so is anything without a category — which
+     * since V5 is the same set of rows. Moving money to a savings account is not
+     * spending it, and counting it against a budget would tell the user they had
+     * blown a limit by saving.
+     */
+    @Query(
+            """
+            select t.category.id as categoryId, coalesce(sum(t.amount), 0) as spent
+              from Transaction t
+             where t.userId = :userId
+               and t.deletedAt is null
+               and t.transfer = false
+               and t.type = :type
+               and t.occurredOn between :from and :to
+             group by t.category.id
+            """)
+    java.util.List<CategorySpend> spendByCategory(
+            @Param("userId") UUID userId,
+            @Param("type") TransactionType type,
+            @Param("from") java.time.LocalDate from,
+            @Param("to") java.time.LocalDate to);
+
+    /** Projection for {@link #spendByCategory}. */
+    interface CategorySpend {
+        UUID getCategoryId();
+
+        java.math.BigDecimal getSpent();
+    }
+
+    /**
      * Moves a category's transactions aside so the category can be deleted.
      *
      * <p>Native, because JPQL cannot assign through an association path

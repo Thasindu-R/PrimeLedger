@@ -106,18 +106,92 @@ Two rules the schema cannot express, both enforced by the service:
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/accounts` | The caller's accounts, ordered by name |
-| POST | `/accounts/default` | Idempotent: returns the caller's first account, creating `Everyday` if they have none |
+| GET | `/accounts` | With balances, ordered by name. `?includeArchived=true` for the lot |
+| GET | `/accounts/{id}` | |
+| POST | `/accounts` | 201; 409 if the name is already taken |
+| PUT | `/accounts/{id}` | Currency is immutable once the account holds transactions (422) |
+| POST | `/accounts/{id}/archive` | Hides it from pickers, keeps its history |
+| POST | `/accounts/{id}/unarchive` | |
+| DELETE | `/accounts/{id}` | Only while empty; archive instead to keep history (422) |
+| POST | `/accounts/default` | Idempotent: the caller's first active account, creating `Everyday` if they have none |
 
-Phase 5 owns accounts (F-01) — creating, renaming, archiving, balances and
-transfers all arrive there. These two exist because Phase 4 could not do without
-them: `transactions.account_id` is `NOT NULL`, so a user who owns no account
-cannot record anything, and a freshly signed-up user owns none.
+`balance` is the opening balance plus every movement since. Transfer legs are
+included — moving money does change what an account holds — while being excluded
+from the income and expense totals in the analytics summary.
+
+Archiving, not deleting, is the operation that matches closing a real account:
+`transactions.account_id` is `ON DELETE RESTRICT`, and losing a year of history
+to close one card is not a reasonable trade. Archiving the caller's last active
+account is refused, because it would leave nothing to record against, and an
+archived account will not accept new transactions.
 
 `POST /accounts/default` is a POST rather than folded into the `GET` because it
 genuinely inserts, and a `GET` that writes is one that cannot be cached or
 retried safely. Calling it repeatedly converges on one account rather than
 accumulating them.
+
+### Transfers
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/transfers` | 201, returns both legs |
+| DELETE | `/transfers/{legId}` | Soft-deletes both legs, given either |
+
+A transfer is a linked pair of ordinary transactions — an expense on the source,
+an income on the destination — written atomically, both flagged `isTransfer` and
+each carrying the other's id in `transferPairId`.
+
+**Transfer legs have no category.** V5 made `category_id` nullable with a check
+constraint tying it to the flag: a transfer has no category and everything else
+must have one. Moving your own money is not Groceries, not Salary, and not
+"Other"; inventing a system "Transfer" category would put a fake row in every
+picker, breakdown and budget.
+
+Refused with 422: the same account twice, two accounts in different currencies
+(conversion is F-05), an archived account, or a date beyond tomorrow.
+
+Deleting one leg through `DELETE /transactions/{id}` deletes both, exactly as
+the transfer endpoint does — money that left an account and arrived nowhere is
+the one state a ledger must not reach.
+
+### Budgets
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/budgets` | Budgets in force, with spend for the current period |
+| POST | `/budgets` | 201; 409 if one already starts on that date |
+| PUT | `/budgets/{id}` | Only for a period that has not ended (422) |
+| DELETE | `/budgets/{id}` | 204 |
+
+A budget row says "from `startsOn`, the limit for this category is this much".
+The limit in force on any day is the latest row that had started by then, so
+raising August's grocery budget leaves July reporting against the limit that
+actually applied — budgets are period-scoped, not absolute.
+
+Each entry carries `spent`, `remaining` (negative once over), `percentUsed`
+(uncapped — "340% of your dining budget" is the fact the user needs) and
+`status` of `OK` / `WARNING` (≥80%) / `EXCEEDED` (≥100%), plus the
+`periodStart`/`periodEnd` it all refers to.
+
+Income categories cannot be budgeted (422), and `startsOn` must be the first day
+of a period of the given length.
+
+### Notifications
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/notifications` | Newest first, capped at 50 |
+| GET | `/notifications/unread-count` | `{"unread": n}` — the dot on the bell |
+| POST | `/notifications/{id}/read` | |
+| POST | `/notifications/read-all` | `{"marked": n}` |
+
+Budget threshold crossings, **at most once per threshold per period**. The
+evaluator runs after every transaction write, when a budget is created or
+changed, and on a nightly sweep, so the same crossing is re-detected many times;
+a unique index in V4 over (user, budget, period, threshold) is what makes the
+second and subsequent detections write nothing. Jumping straight past both
+thresholds reports being over rather than queueing a warning that was already
+obsolete.
 
 ### Analytics
 

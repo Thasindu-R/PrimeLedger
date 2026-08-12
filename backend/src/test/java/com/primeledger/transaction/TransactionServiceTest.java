@@ -55,6 +55,8 @@ class TransactionServiceTest {
     @Mock private TransactionRepository transactions;
     @Mock private AccountRepository accounts;
     @Mock private CategoryService categories;
+    @Mock private TransferService transfers;
+    @Mock private com.primeledger.budget.BudgetEvaluator budgets;
 
     private TransactionService service;
 
@@ -68,9 +70,11 @@ class TransactionServiceTest {
                         categories,
                         new TransactionMapperImpl(),
                         currentUser,
+                        transfers,
+                        budgets,
                         CLOCK);
 
-        when(accounts.existsByIdAndUserId(ACCOUNT, USER)).thenReturn(true);
+        when(accounts.findByIdAndUserId(ACCOUNT, USER)).thenReturn(Optional.of(openAccount()));
         when(categories.requireUsable(eq(CATEGORY), eq(USER)))
                 .thenReturn(category(CategoryKind.EXPENSE, "Groceries"));
         when(transactions.saveAndFlush(any(Transaction.class)))
@@ -109,11 +113,47 @@ class TransactionServiceTest {
         @Test
         @DisplayName("reports an account belonging to somebody else as absent")
         void rejectsForeignAccount() {
-            when(accounts.existsByIdAndUserId(ACCOUNT, USER)).thenReturn(false);
+            when(accounts.findByIdAndUserId(ACCOUNT, USER)).thenReturn(Optional.empty());
 
             assertFails(
                     () -> service.create(request(LocalDate.of(2026, 8, 1), BigDecimal.ONE)),
                     ErrorCode.NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("refuses to file a transaction into an archived account")
+        void rejectsArchivedAccount() {
+            var archived = openAccount();
+            archived.setArchived(true);
+            when(accounts.findByIdAndUserId(ACCOUNT, USER)).thenReturn(Optional.of(archived));
+
+            // Archiving means "I have closed this account". Still accepting new
+            // transactions into it would make the archive purely decorative.
+            assertFails(
+                    () -> service.create(request(LocalDate.of(2026, 8, 1), BigDecimal.ONE)),
+                    ErrorCode.BUSINESS_RULE);
+        }
+
+        @Test
+        @DisplayName("re-checks budgets after a write, so an alert follows the spending")
+        void evaluatesBudgetsAfterWriting() {
+            service.create(request(LocalDate.of(2026, 8, 1), BigDecimal.ONE));
+
+            verify(budgets).evaluate(USER);
+        }
+
+        @Test
+        @DisplayName("a failing budget evaluation does not lose the transaction")
+        void survivesBudgetEvaluationFailure() {
+            // The alert is a courtesy; the row the user asked to save is not.
+            org.mockito.Mockito.doThrow(new IllegalStateException("evaluator down"))
+                    .when(budgets)
+                    .evaluate(USER);
+
+            var response = service.create(request(LocalDate.of(2026, 8, 1), BigDecimal.ONE));
+
+            assertThat(response).isNotNull();
+            verify(transactions).saveAndFlush(any(Transaction.class));
         }
 
         @Test
@@ -305,6 +345,18 @@ class TransactionServiceTest {
                 "USD",
                 occurredOn,
                 "Weekly shop");
+    }
+
+    /** An account that is open for business — the ordinary case. */
+    private static com.primeledger.account.Account openAccount() {
+        com.primeledger.account.Account account = new com.primeledger.account.Account();
+        account.setId(ACCOUNT);
+        account.setUserId(USER);
+        account.setName("Everyday");
+        account.setType(com.primeledger.account.AccountType.CHECKING);
+        account.setCurrency("USD");
+        account.setOpeningBalance(BigDecimal.ZERO);
+        return account;
     }
 
     private static Category category(CategoryKind kind, String name) {

@@ -134,7 +134,9 @@ public class AnalyticsRepository {
             Root<Transaction> root,
             CriteriaQuery<?> query,
             CriteriaBuilder cb) {
-        return TransactionSpecifications.matching(userId, filter).toPredicate(root, query, cb);
+        // reporting(), not matching(): transfers move money without being income
+        // or expense, and every figure this class produces is a report.
+        return TransactionSpecifications.reporting(userId, filter).toPredicate(root, query, cb);
     }
 
     public record TypeTotal(

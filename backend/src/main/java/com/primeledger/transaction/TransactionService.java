@@ -1,6 +1,7 @@
 package com.primeledger.transaction;
 
 import com.primeledger.account.AccountRepository;
+import com.primeledger.budget.BudgetEvaluator;
 import com.primeledger.category.Category;
 import com.primeledger.category.CategoryKind;
 import com.primeledger.category.CategoryService;
@@ -23,11 +24,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class TransactionService {
 
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(TransactionService.class);
+
     private final TransactionRepository transactions;
     private final AccountRepository accounts;
     private final CategoryService categories;
     private final TransactionMapper mapper;
     private final CurrentUserProvider currentUser;
+    private final TransferService transfers;
+    private final BudgetEvaluator budgets;
     private final Clock clock;
 
     public TransactionService(
@@ -36,12 +42,16 @@ public class TransactionService {
             CategoryService categories,
             TransactionMapper mapper,
             CurrentUserProvider currentUser,
+            TransferService transfers,
+            BudgetEvaluator budgets,
             Clock clock) {
         this.transactions = transactions;
         this.accounts = accounts;
         this.categories = categories;
         this.mapper = mapper;
         this.currentUser = currentUser;
+        this.transfers = transfers;
+        this.budgets = budgets;
         this.clock = clock;
     }
 
@@ -69,7 +79,10 @@ public class TransactionService {
         Transaction transaction = new Transaction();
         transaction.setUserId(userId);
         apply(request, transaction, userId);
-        return mapper.toResponse(transactions.saveAndFlush(transaction));
+        TransactionResponse created = mapper.toResponse(transactions.saveAndFlush(transaction));
+
+        evaluateBudgets(userId);
+        return created;
     }
 
     @Transactional
@@ -84,7 +97,10 @@ public class TransactionService {
             throw ApiException.businessRule("Transfers cannot be edited through this endpoint");
         }
         apply(request, transaction, transaction.getUserId());
-        return mapper.toResponse(transactions.saveAndFlush(transaction));
+        TransactionResponse updated = mapper.toResponse(transactions.saveAndFlush(transaction));
+
+        evaluateBudgets(transaction.getUserId());
+        return updated;
     }
 
     /** Soft delete (proposal §8.1). The row stays; every read stops seeing it. */
@@ -94,6 +110,16 @@ public class TransactionService {
         if (transaction.isDeleted()) {
             return; // Deleting twice is the same outcome as deleting once.
         }
+
+        if (transaction.isTransfer()) {
+            // Deleting one leg of a transfer from the ordinary transaction list
+            // is the same act as deleting the transfer, and must have the same
+            // result: money that left an account and arrived nowhere is the one
+            // state a ledger must never be able to reach.
+            transfers.deletePair(transaction, transaction.getUserId());
+            return;
+        }
+
         transaction.setDeletedAt(clock.instant());
         transactions.save(transaction);
     }
@@ -117,6 +143,22 @@ public class TransactionService {
     }
 
     /**
+     * Re-checks the caller's budgets after a write that could have moved one
+     * (F-02: "runs after each write").
+     *
+     * <p>Failures are logged and swallowed. A budget alert is a courtesy; the
+     * transaction the user asked to save is not, and letting a notification
+     * problem roll back their write would be the wrong trade by a wide margin.
+     */
+    private void evaluateBudgets(UUID userId) {
+        try {
+            budgets.evaluate(userId);
+        } catch (RuntimeException e) {
+            log.warn("Budget evaluation failed for user {} after a write", userId, e);
+        }
+    }
+
+    /**
      * Ownership is part of the query, so a transaction belonging to another user
      * is reported as absent rather than forbidden (proposal §8.2).
      */
@@ -127,8 +169,16 @@ public class TransactionService {
     }
 
     private void apply(TransactionRequest request, Transaction transaction, UUID userId) {
-        if (!accounts.existsByIdAndUserId(request.accountId(), userId)) {
-            throw ApiException.notFound("Account", request.accountId());
+        var account =
+                accounts.findByIdAndUserId(request.accountId(), userId)
+                        .orElseThrow(() -> ApiException.notFound("Account", request.accountId()));
+
+        // Archiving an account means "I have closed this"; still accepting new
+        // transactions into it would make the archive purely cosmetic.
+        if (account.isArchived()) {
+            throw ApiException.businessRule(
+                    "'%s' is archived and cannot take new transactions"
+                            .formatted(account.getName()));
         }
 
         Category category = categories.requireUsable(request.categoryId(), userId);

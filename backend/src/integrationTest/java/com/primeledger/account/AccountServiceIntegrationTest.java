@@ -89,7 +89,7 @@ class AccountServiceIntegrationTest extends AbstractIntegrationTest {
         RunAs.callUnchecked(alice, service::ensureDefault);
 
         assertThat(accounts.findByUserIdOrderByNameAsc(bob)).isEmpty();
-        assertThat(RunAs.callUnchecked(bob, service::list)).isEmpty();
+        assertThat(RunAs.callUnchecked(bob, () -> service.list(false))).isEmpty();
     }
 
     @Test
@@ -98,10 +98,10 @@ class AccountServiceIntegrationTest extends AbstractIntegrationTest {
         RunAs.callUnchecked(alice, service::ensureDefault);
         RunAs.callUnchecked(bob, service::ensureDefault);
 
-        assertThat(RunAs.callUnchecked(alice, service::list)).hasSize(1);
-        assertThat(RunAs.callUnchecked(bob, service::list)).hasSize(1);
-        assertThat(RunAs.callUnchecked(alice, service::list).getFirst().id())
-                .isNotEqualTo(RunAs.callUnchecked(bob, service::list).getFirst().id());
+        assertThat(RunAs.callUnchecked(alice, () -> service.list(false))).hasSize(1);
+        assertThat(RunAs.callUnchecked(bob, () -> service.list(false))).hasSize(1);
+        assertThat(RunAs.callUnchecked(alice, () -> service.list(false)).getFirst().id())
+                .isNotEqualTo(RunAs.callUnchecked(bob, () -> service.list(false)).getFirst().id());
     }
 
     private UUID seedUser() {

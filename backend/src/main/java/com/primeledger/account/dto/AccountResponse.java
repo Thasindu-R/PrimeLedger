@@ -19,7 +19,19 @@ public record AccountResponse(
         AccountType type,
         @Schema(example = "USD") String currency,
         @Schema(type = "string", example = "0.00") String openingBalance,
+        /**
+         * Opening balance plus every movement since — the answer to "how much is
+         * in this account?", which F-01 names as the first question a user asks.
+         *
+         * <p>Transfer legs are included here and excluded from the income and
+         * expense totals in the analytics summary. Both are correct: moving your
+         * own money changes what an account holds without being earning or
+         * spending.
+         */
+        @Schema(type = "string", example = "1240.75") String balance,
         @Schema(example = "#4F46E5") String colour,
         @Schema(name = "isArchived") boolean archived,
+        @Schema(description = "How many live transactions reference this account")
+                long transactionCount,
         Instant createdAt,
         Instant updatedAt) {}

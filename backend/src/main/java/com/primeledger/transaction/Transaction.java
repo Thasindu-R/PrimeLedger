@@ -52,9 +52,14 @@ public class Transaction extends Auditable {
      * Loaded lazily and mapped as an association because the response carries
      * the category's name; the rest of the foreign keys are plain UUIDs until a
      * later phase gives them behaviour.
+     *
+     * <p>Null on a transfer leg, and only on a transfer leg — V5 has a check
+     * constraint tying the two together. Moving your own money between your own
+     * accounts has no category, and inventing one for it would put a fake row in
+     * every picker, breakdown and budget (see V5 for why).
      */
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "category_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
     private Category category;
 
     @Column(name = "recurring_rule_id")
