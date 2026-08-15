@@ -31,7 +31,36 @@ vi.mock('./api/categories', async (importOriginal) => {
 });
 vi.mock('./api/accounts', async () => {
   const fake = await import('./test/fakeServer');
-  return { ensureDefaultAccount: fake.ensureDefaultAccount };
+  return {
+    ensureDefaultAccount: fake.ensureDefaultAccount,
+    listAccounts: fake.listAccounts,
+    createAccount: fake.createAccount,
+    updateAccount: fake.updateAccount,
+    setAccountArchived: fake.setAccountArchived,
+    deleteAccount: fake.deleteAccount,
+  };
+});
+vi.mock('./api/transfers', async () => {
+  const fake = await import('./test/fakeServer');
+  return { createTransfer: fake.createTransfer, deleteTransfer: fake.deleteTransfer };
+});
+vi.mock('./api/budgets', async () => {
+  const fake = await import('./test/fakeServer');
+  return {
+    listBudgets: fake.listBudgets,
+    createBudget: fake.createBudget,
+    updateBudget: fake.updateBudget,
+    deleteBudget: fake.deleteBudget,
+  };
+});
+vi.mock('./api/notifications', async () => {
+  const fake = await import('./test/fakeServer');
+  return {
+    listNotifications: fake.listNotifications,
+    fetchUnreadCount: fake.fetchUnreadCount,
+    markNotificationRead: fake.markNotificationRead,
+    markAllNotificationsRead: fake.markAllNotificationsRead,
+  };
 });
 vi.mock('./api/analytics', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./api/analytics')>();
@@ -82,6 +111,26 @@ describe('routing', () => {
     expect(
       await screen.findByRole('heading', { name: /all transactions/i }),
     ).toBeInTheDocument();
+  });
+
+  // The two Phase 5 pages, mounted through the real shell and the real hooks
+  // rather than rendered in isolation — which is what proves the wiring, not
+  // just the components.
+  it('renders the accounts page at its own URL', async () => {
+    renderApp('/accounts');
+    expect(
+      await screen.findByRole('heading', { name: /^accounts$/i }),
+    ).toBeInTheDocument();
+    // The provisioned default account, read through useAccounts.
+    expect(await screen.findByText('Everyday')).toBeInTheDocument();
+  });
+
+  it('renders the budgets page at its own URL', async () => {
+    renderApp('/budgets');
+    expect(
+      await screen.findByRole('heading', { name: /^budgets$/i }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/no budgets yet/i)).toBeInTheDocument();
   });
 
   it('renders the settings page at its own URL', async () => {

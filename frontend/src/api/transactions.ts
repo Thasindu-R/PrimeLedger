@@ -10,6 +10,8 @@ import type { Transaction, TransactionType } from '../types';
 export interface TransactionFilters {
   type?: TransactionType;
   categoryId?: string;
+  /** Undefined means every account, which is the default the app opens on. */
+  accountId?: string;
   startDate?: string;
   endDate?: string;
   search?: string;
@@ -71,6 +73,7 @@ export async function listTransactions({
 
   if (filters.type) query.set('type', toWireType(filters.type));
   if (filters.categoryId) query.set('categoryId', filters.categoryId);
+  if (filters.accountId) query.set('accountId', filters.accountId);
   if (filters.startDate) query.set('from', filters.startDate);
   if (filters.endDate) query.set('to', filters.endDate);
   if (filters.search?.trim()) query.set('search', filters.search.trim());
@@ -162,8 +165,15 @@ export function toTransaction(wire: WireTransaction): Transaction {
   return {
     id: wire.id,
     type: fromWireType(wire.type),
-    category: wire.categoryName,
-    categoryId: wire.categoryId,
+    // A transfer leg has no category. "Transfer" is a label for the absence of
+    // one, applied here at the boundary rather than by every component that
+    // renders a row — and deliberately not a real category, which would then be
+    // offered in the add form and counted in the breakdown.
+    category: wire.categoryName ?? (wire.transfer ? 'Transfer' : ''),
+    categoryId: wire.categoryId ?? undefined,
+    accountId: wire.accountId,
+    isTransfer: wire.transfer,
+    transferPairId: wire.transferPairId ?? undefined,
     amount: Number(wire.amount),
     date: wire.occurredOn,
     description: wire.description ?? undefined,

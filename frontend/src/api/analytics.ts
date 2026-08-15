@@ -30,6 +30,11 @@ export interface AnalyticsSummary {
   monthly: MonthlyBucket[];
 }
 
+/** What the figures below describe. Empty means the whole ledger. */
+export interface AnalyticsScope {
+  accountId?: string;
+}
+
 /**
  * The aggregates the dashboard draws, over every row the ledger holds.
  *
@@ -37,9 +42,23 @@ export interface AnalyticsSummary {
  * That stopped being possible when the list became paginated: summing the
  * twenty-five rows on screen would report the current page's totals as the
  * ledger's totals, and would change every time the user turned a page.
+ *
+ * <p>The scope is the account selected in the header, and nothing else. It is
+ * not the transactions page's filter: the user narrowing a search to groceries
+ * over 50 should not silently redraw the dashboard's twelve-month chart. The
+ * account is different in kind — picking one is a statement about which ledger
+ * you are looking at.
+ *
+ * <p>Transfers are excluded from these totals by the server while still counting
+ * towards account balances, so the income and expense here stay honest about
+ * what was actually earned and spent (F-01).
  */
-export async function fetchSummary(): Promise<AnalyticsSummary> {
-  const body = await apiJson<unknown>('/analytics/summary');
+export async function fetchSummary(scope: AnalyticsScope = {}): Promise<AnalyticsSummary> {
+  const query = new URLSearchParams();
+  if (scope.accountId) query.set('accountId', scope.accountId);
+
+  const suffix = query.toString() ? `?${query}` : '';
+  const body = await apiJson<unknown>(`/analytics/summary${suffix}`);
   const parsed = summarySchema.parse(body);
 
   return {

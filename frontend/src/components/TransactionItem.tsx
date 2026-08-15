@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, Pencil, Trash2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Pencil, Trash2 } from 'lucide-react';
 import type { Transaction } from '../types';
 import { formatDate } from '../utils/formatCurrency';
 
@@ -24,10 +24,15 @@ export function TransactionItem({ transaction, onDelete, onEdit }: TransactionIt
       {/* Left - Category Icon Container */}
       <div
         className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-          isIncome ? 'bg-green-50' : 'bg-red-50'
+          // A transfer is neither income nor expense, so it gets neither colour.
+          // Painting the outgoing leg red would say money was spent, which is
+          // exactly the claim the analytics summary refuses to make.
+          transaction.isTransfer ? 'bg-gray-100' : isIncome ? 'bg-green-50' : 'bg-red-50'
         }`}
       >
-        {isIncome ? (
+        {transaction.isTransfer ? (
+          <ArrowLeftRight size={18} className="text-gray-500" />
+        ) : isIncome ? (
           <ArrowDownLeft size={18} className="text-green-500" />
         ) : (
           <ArrowUpRight size={18} className="text-red-500" />
@@ -50,18 +55,27 @@ export function TransactionItem({ transaction, onDelete, onEdit }: TransactionIt
       <div className="flex items-center gap-1 flex-shrink-0">
         <span
           className={`text-sm font-semibold mr-2 ${
-            isIncome ? 'text-green-600' : 'text-red-500'
+            transaction.isTransfer
+              ? 'text-gray-500'
+              : isIncome
+                ? 'text-green-600'
+                : 'text-red-500'
           }`}
         >
           {isIncome ? '+' : '-'}Rs. {formatAmount(transaction.amount)}
         </span>
-        <button
-          onClick={() => onEdit(transaction)}
-          aria-label={`Edit ${label}`}
-          className="sm:opacity-0 opacity-100 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-gray-100 text-gray-300 hover:text-gray-500"
-        >
-          <Pencil size={15} />
-        </button>
+        {/* No edit for a transfer leg. The transaction form cannot express one —
+            it has no category, and changing its amount would have to change the
+            other leg too — so the honest options are delete and re-create. */}
+        {!transaction.isTransfer && (
+          <button
+            onClick={() => onEdit(transaction)}
+            aria-label={`Edit ${label}`}
+            className="sm:opacity-0 opacity-100 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity p-1.5 rounded-lg hover:bg-gray-100 text-gray-300 hover:text-gray-500"
+          >
+            <Pencil size={15} />
+          </button>
+        )}
         <button
           onClick={() => onDelete(transaction.id)}
           aria-label={`Delete ${label}`}

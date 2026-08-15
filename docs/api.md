@@ -1,10 +1,17 @@
 # API reference
 
-> **Status: Phase 3.** Transactions and categories are live and every endpoint
-> requires a Supabase bearer token. springdoc serves the interactive Swagger UI
-> at `/swagger-ui.html` and the spec at `/v3/api-docs`; this file carries the
-> hand-written context a generated spec cannot: conventions, error semantics,
-> and the rules a caller has to know.
+> **Status: Phase 5.** Transactions, categories, accounts, transfers, budgets
+> and notifications are live, and every endpoint requires a Supabase bearer
+> token. springdoc serves the interactive Swagger UI at `/swagger-ui.html` and
+> the spec at `/v3/api-docs`; this file carries the hand-written context a
+> generated spec cannot: conventions, error semantics, and the rules a caller
+> has to know.
+
+> **Two field names to get right.** `@Schema(name = …)` renames a field in the
+> generated spec and nowhere else, so three booleans go over the wire under
+> their Java names, not their documented ones: a transaction sends `transfer`
+> (not `isTransfer`), an account sends `archived` (not `isArchived`), and a
+> notification sends `read` (not `isRead`). The client parses the names above.
 
 ## Authentication
 
@@ -67,7 +74,12 @@ and present on the matching log line.
 ## Endpoints
 
 Documented as they land. Phase 2 delivered transactions and categories; Phase 4
-added the analytics summary and the read half of accounts.
+added the analytics summary and the read half of accounts; Phase 5 added the
+rest of accounts, transfers, budgets and notifications.
+
+**A transaction has no category when it is a transfer leg.** `categoryId` and
+`categoryName` are nullable from V5, and a client that declares them required
+will reject a whole page over one transfer.
 
 ### Transactions
 
@@ -202,6 +214,12 @@ obsolete.
 Takes the **same filter as `GET /transactions`** and applies it identically, so
 the summary always describes exactly the rows that endpoint would return.
 Unfiltered, it describes the whole ledger.
+
+Transfer legs are excluded from every figure here while still counting towards
+account balances. Both are correct: moving your own money changes what an
+account holds without being earning or spending. The web client sends only
+`accountId`, from the header's account selector — the transactions page's own
+filters deliberately do not redraw the dashboard.
 
 ```json
 {

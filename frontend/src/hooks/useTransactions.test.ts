@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { QueryHarness } from '../test/queryHarness';
 import { useTransactions } from './useTransactions';
-import { makeTransaction } from '../test/factories';
+import { makeAccount, makeTransaction } from '../test/factories';
 import type { Page } from '../api/transactions';
 import type { Transaction } from '../types';
 import { ApiError } from '../api/client';
@@ -49,11 +49,7 @@ function page(items: Transaction[], overrides: Partial<Page<Transaction>> = {}):
 const GROCERIES = 'cat-groceries';
 
 beforeEach(() => {
-  vi.mocked(ensureDefaultAccount).mockResolvedValue({
-    id: 'acc-1',
-    name: 'Everyday',
-    currency: 'USD',
-  });
+  vi.mocked(ensureDefaultAccount).mockResolvedValue(makeAccount());
   vi.mocked(listCategories).mockResolvedValue([
     { id: GROCERIES, name: 'Groceries', kind: 'expense', system: true, sortOrder: 1 },
     { id: 'cat-salary', name: 'Salary', kind: 'income', system: true, sortOrder: 0 },

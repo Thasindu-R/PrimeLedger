@@ -52,7 +52,10 @@ function formFor(transaction: Transaction | undefined): FormState {
     description: transaction.description ?? "",
     amount: String(transaction.amount),
     type: transaction.type,
-    categoryId: transaction.categoryId,
+    // Empty for a transfer leg, which has no category. The list does not offer
+    // to edit one — this form cannot express a transfer — so this is a fallback
+    // rather than a case the user reaches.
+    categoryId: transaction.categoryId ?? "",
     date: transaction.date,
   };
 }

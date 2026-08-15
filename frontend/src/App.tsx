@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { useTransactions } from './hooks/useTransactions';
+import { useAccounts } from './hooks/useAccounts';
+import { useNotifications } from './hooks/useNotifications';
 import { LocalDataMigration } from './components/LocalDataMigration';
 import { hasAnsweredMigration, readLegacyTransactions } from './lib/localMigration';
 import { useProfile } from './hooks/useProfile';
@@ -14,6 +16,8 @@ import { useToast } from './hooks/useToast';
 import { OverviewPage } from './pages/app/OverviewPage';
 import { AnalyticsPage } from './pages/app/AnalyticsPage';
 import { TransactionsPage } from './pages/app/TransactionsPage';
+import { AccountsPage } from './pages/app/AccountsPage';
+import { BudgetsPage } from './pages/app/BudgetsPage';
 import { SettingsPage } from './pages/app/SettingsPage';
 import { RequireAnonymous, RequireAuth } from './auth/RequireAuth';
 import { useAuth } from './auth/authContext';
@@ -43,10 +47,36 @@ function AppShell() {
     void signOut();
   };
 
-  const ledger = useTransactions({ showToast });
+  /**
+   * Which account the app is scoped to, or undefined for all of them.
+   *
+   * <p>Shell state rather than a URL parameter or localStorage: it is a view the
+   * user is holding right now, not a preference. Persisting it would mean
+   * someone who once looked at "Savings" opens the app tomorrow to a ledger
+   * missing most of their money, with no obvious reason why.
+   */
+  const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>();
+
+  const accounts = useAccounts({ showToast });
+  const notifications = useNotifications();
+
+  const selectedAccount = useMemo(
+    () => accounts.accounts.find((account) => account.id === selectedAccountId),
+    [accounts.accounts, selectedAccountId],
+  );
+
+  // An account can stop existing while it is selected — archived from the
+  // accounts page, or deleted. Falling back to all accounts is the only honest
+  // answer; staying scoped to something that is gone shows an empty ledger and
+  // blames the user's data for it.
+  const effectiveAccountId =
+    selectedAccountId !== undefined && selectedAccount === undefined
+      ? undefined
+      : selectedAccountId;
+
+  const ledger = useTransactions({ showToast, selectedAccount });
   const {
     transactions,
-    recentTransactions,
     categories,
     account,
     addTransaction,
@@ -120,6 +150,22 @@ function AppShell() {
 
   const context: LedgerContext = {
     transactions,
+    categories,
+    accounts: {
+      all: accounts.accounts,
+      active: accounts.activeAccounts,
+      includeArchived: accounts.includeArchived,
+      setIncludeArchived: accounts.setIncludeArchived,
+      isLoading: accounts.isLoading,
+      error: accounts.error,
+      refetch: accounts.refetch,
+      isMutating: accounts.isMutating,
+      add: accounts.addAccount,
+      edit: accounts.editAccount,
+      setArchived: accounts.setArchived,
+      remove: accounts.deleteAccount,
+      transfer: accounts.transferBetween,
+    },
     summary,
     ledgerCount: ledger.ledgerCount,
     highestExpense: ledger.highestExpense,
@@ -165,7 +211,14 @@ function AppShell() {
       <TopNavBar
         userName={displayName}
         userHandle={handle}
-        recentTransactions={recentTransactions}
+        accounts={accounts.activeAccounts}
+        selectedAccountId={effectiveAccountId}
+        onSelectAccount={setSelectedAccountId}
+        notifications={notifications.notifications}
+        unreadCount={notifications.unreadCount}
+        notificationsLoading={notifications.isLoading}
+        onMarkNotificationRead={notifications.markRead}
+        onMarkAllNotificationsRead={notifications.markAllRead}
         onSignOut={handleSignOut}
       />
       <PageHeader
@@ -205,8 +258,17 @@ function AppShell() {
 
       <ConfirmDialog
         isOpen={pendingDeleteId !== null}
-        title="Delete this transaction?"
-        message={`"${pendingTransaction?.description || pendingTransaction?.category || 'This transaction'}" will be removed from your ledger.`}
+        title={
+          pendingTransaction?.isTransfer ? 'Delete this transfer?' : 'Delete this transaction?'
+        }
+        message={
+          pendingTransaction?.isTransfer
+            ? // Both legs go, because the server deletes them together. Money
+              // that left one account and arrived nowhere is the one state a
+              // ledger must not reach, so this is a warning, not an option.
+              'Both sides of the transfer are removed — the money leaving one account and arriving in the other.'
+            : `"${pendingTransaction?.description || pendingTransaction?.category || 'This transaction'}" will be removed from your ledger.`
+        }
         confirmLabel="Delete"
         onConfirm={handleConfirmDelete}
         onCancel={() => setPendingDeleteId(null)}
@@ -238,6 +300,8 @@ export default function App() {
           <Route path="/overview" element={<OverviewPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
+          <Route path="/accounts" element={<AccountsPage />} />
+          <Route path="/budgets" element={<BudgetsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/overview" replace />} />
         </Route>

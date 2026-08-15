@@ -1,13 +1,42 @@
 import { useOutletContext } from 'react-router-dom';
-import type { Transaction, Summary } from '../types';
+import type { Account, Transaction, Summary } from '../types';
 import type {
   CategoryBreakdown,
   SortConfig,
   SortField,
   TransactionFilters,
 } from '../hooks/useTransactions';
+import type { CategoryOption } from '../api/categories';
+import type { AccountInput } from '../api/accounts';
+import type { TransferInput } from '../api/transfers';
 import type { MonthlyPoint } from '../utils/timeSeries';
 import type { PeriodDeltas } from '../utils/periodComparison';
+
+/**
+ * The accounts the shell already holds, handed down rather than re-fetched.
+ *
+ * <p>The header's selector and the accounts page read the same list. Two
+ * independent copies could disagree — the selector still offering an account the
+ * page had just archived — so there is one, owned by the shell.
+ */
+export interface AccountsContext {
+  all: Account[];
+  /** What the pickers offer: an archived account will not accept a transaction. */
+  active: Account[];
+  includeArchived: boolean;
+  setIncludeArchived: (include: boolean) => void;
+
+  isLoading: boolean;
+  error: unknown;
+  refetch: () => void;
+  isMutating: boolean;
+
+  add: (input: AccountInput) => void;
+  edit: (id: string, input: AccountInput) => void;
+  setArchived: (id: string, archived: boolean) => void;
+  remove: (id: string) => void;
+  transfer: (input: TransferInput) => void;
+}
 
 /**
  * Everything the routed pages need from the shell. The presentational
@@ -22,6 +51,10 @@ import type { PeriodDeltas } from '../utils/periodComparison';
 export interface LedgerContext {
   /** The current page of results, in the order the server returned them. */
   transactions: Transaction[];
+  /** Accounts and their writes, owned by the shell (F-01). */
+  accounts: AccountsContext;
+  /** The category vocabulary, for the pages that offer a picker. */
+  categories: CategoryOption[];
   summary: Summary;
   /** How many transactions the ledger holds, from the server. */
   ledgerCount: number;

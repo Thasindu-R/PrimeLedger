@@ -1,4 +1,23 @@
-export function formatCurrency(amount: number): string {
+/**
+ * Money, for display.
+ *
+ * <p>The unqualified form is the app's own default and is left exactly as it
+ * was. The optional `currency` is for the one place that genuinely holds more
+ * than one: from Phase 5 an account carries its own ISO code, and rendering a
+ * dollar account as `Rs.` would be a plain lie about what is in it. Everywhere
+ * else there is only ever one currency in view, so the code would be noise.
+ */
+export function formatCurrency(amount: number, currency?: string): string {
+  if (currency) {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'narrowSymbol',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  }
+
   const formatter = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,

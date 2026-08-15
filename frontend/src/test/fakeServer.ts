@@ -1,6 +1,9 @@
-import type { Transaction } from '../types';
+import type { Account, Budget, Notification, Transaction } from '../types';
 import type { CategoryOption } from '../api/categories';
-import type { AnalyticsSummary } from '../api/analytics';
+import type { AnalyticsScope, AnalyticsSummary } from '../api/analytics';
+import type { AccountInput } from '../api/accounts';
+import type { BudgetInput } from '../api/budgets';
+import type { TransferInput, TransferPair } from '../api/transfers';
 import type {
   ListParams,
   Page,
@@ -26,13 +29,42 @@ export const FAKE_CATEGORIES: CategoryOption[] = [
   { id: 'cat-transport', name: 'Transport', kind: 'expense', system: true, sortOrder: 3 },
 ];
 
-const store: { transactions: Transaction[]; nextId: number } = {
+/** The account every seeded transaction belongs to unless a test says otherwise. */
+export const DEFAULT_ACCOUNT: Account = {
+  id: 'acc-1',
+  name: 'Everyday',
+  type: 'CHECKING',
+  currency: 'USD',
+  openingBalance: 0,
+  balance: 0,
+  isArchived: false,
+  transactionCount: 0,
+};
+
+interface Store {
+  transactions: Transaction[];
+  accounts: Account[];
+  budgets: Budget[];
+  notifications: Notification[];
+  nextId: number;
+}
+
+const store: Store = {
   transactions: [],
+  accounts: [],
+  budgets: [],
+  notifications: [],
   nextId: 0,
 };
 
-export function resetFakeServer(seed: Transaction[] = []): void {
+export function resetFakeServer(
+  seed: Transaction[] = [],
+  options: { accounts?: Account[]; budgets?: Budget[]; notifications?: Notification[] } = {},
+): void {
   store.transactions = seed.map((transaction) => ({ ...transaction }));
+  store.accounts = (options.accounts ?? [DEFAULT_ACCOUNT]).map((account) => ({ ...account }));
+  store.budgets = (options.budgets ?? []).map((budget) => ({ ...budget }));
+  store.notifications = (options.notifications ?? []).map((entry) => ({ ...entry }));
   store.nextId = 0;
 }
 
@@ -50,6 +82,7 @@ export async function listTransactions({
 
   if (filters.type) rows = rows.filter((row) => row.type === filters.type);
   if (filters.categoryId) rows = rows.filter((row) => row.categoryId === filters.categoryId);
+  if (filters.accountId) rows = rows.filter((row) => row.accountId === filters.accountId);
   if (filters.startDate) rows = rows.filter((row) => row.date >= filters.startDate!);
   if (filters.endDate) rows = rows.filter((row) => row.date <= filters.endDate!);
   if (filters.minAmount !== undefined) {
@@ -92,15 +125,18 @@ export async function listTransactions({
   };
 }
 
-// The account and currency the real client sends are not modelled here: the
-// fake has one account, and Phase 6 is where currency starts to matter.
-export async function createTransaction(input: TransactionInput): Promise<Transaction> {
+export async function createTransaction(
+  input: TransactionInput,
+  context?: { accountId: string },
+): Promise<Transaction> {
   store.nextId += 1;
   const created: Transaction = {
     id: `server-${store.nextId}`,
     type: input.type,
     category: nameOf(input.categoryId),
     categoryId: input.categoryId,
+    accountId: context?.accountId ?? store.accounts[0]?.id ?? DEFAULT_ACCOUNT.id,
+    isTransfer: false,
     amount: input.amount,
     date: input.date,
     description: input.description,
@@ -130,7 +166,10 @@ export async function updateTransaction(
 }
 
 export async function deleteTransaction(id: string): Promise<void> {
-  store.transactions = store.transactions.filter((row) => row.id !== id);
+  // A transfer leg takes its partner with it, as the real endpoint does.
+  const row = store.transactions.find((t) => t.id === id);
+  const doomed = [id, row?.transferPairId].filter(Boolean);
+  store.transactions = store.transactions.filter((t) => !doomed.includes(t.id));
 }
 
 export async function bulkDeleteTransactions(ids: string[]): Promise<number> {
@@ -143,13 +182,267 @@ export async function listCategories(): Promise<CategoryOption[]> {
   return FAKE_CATEGORIES;
 }
 
-export async function ensureDefaultAccount() {
-  return { id: 'acc-1', name: 'Everyday', currency: 'USD' };
+// ------------------------------------------------------------------ accounts
+
+/** Balance and transaction count are derived, exactly as the server derives them. */
+function withDerived(account: Account): Account {
+  const rows = store.transactions.filter((row) => row.accountId === account.id);
+  const movement = rows.reduce(
+    (total, row) => total + (row.type === 'income' ? row.amount : -row.amount),
+    0,
+  );
+  return {
+    ...account,
+    balance: account.openingBalance + movement,
+    transactionCount: rows.length,
+  };
+}
+
+export async function listAccounts(includeArchived = false): Promise<Account[]> {
+  return store.accounts
+    .filter((account) => includeArchived || !account.isArchived)
+    .map(withDerived)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function ensureDefaultAccount(): Promise<Account> {
+  const existing = store.accounts.find((account) => !account.isArchived);
+  if (existing) return withDerived(existing);
+
+  const created = { ...DEFAULT_ACCOUNT, id: `acc-${store.accounts.length + 1}` };
+  store.accounts.push(created);
+  return withDerived(created);
+}
+
+export async function createAccount(input: AccountInput): Promise<Account> {
+  if (store.accounts.some((a) => a.name.toLowerCase() === input.name.toLowerCase())) {
+    throw new Error(`An account called ${input.name} already exists`);
+  }
+  const created: Account = {
+    id: `acc-${store.accounts.length + 1}`,
+    name: input.name,
+    type: input.type,
+    currency: input.currency,
+    openingBalance: input.openingBalance,
+    balance: input.openingBalance,
+    colour: input.colour,
+    isArchived: false,
+    transactionCount: 0,
+  };
+  store.accounts.push(created);
+  return created;
+}
+
+export async function updateAccount(id: string, input: AccountInput): Promise<Account> {
+  const account = store.accounts.find((a) => a.id === id);
+  if (!account) throw new Error(`No account ${id}`);
+
+  const derived = withDerived(account);
+  if (derived.transactionCount > 0 && input.currency !== account.currency) {
+    throw new Error('An account holding transactions cannot change currency');
+  }
+
+  Object.assign(account, {
+    name: input.name,
+    type: input.type,
+    currency: input.currency,
+    openingBalance: input.openingBalance,
+    colour: input.colour,
+  });
+  return withDerived(account);
+}
+
+export async function setAccountArchived(id: string, archived: boolean): Promise<Account> {
+  const account = store.accounts.find((a) => a.id === id);
+  if (!account) throw new Error(`No account ${id}`);
+
+  const remaining = store.accounts.filter((a) => !a.isArchived && a.id !== id);
+  if (archived && remaining.length === 0) {
+    throw new Error('Your last open account cannot be archived');
+  }
+
+  account.isArchived = archived;
+  return withDerived(account);
+}
+
+export async function deleteAccount(id: string): Promise<void> {
+  const account = store.accounts.find((a) => a.id === id);
+  if (!account) throw new Error(`No account ${id}`);
+  if (withDerived(account).transactionCount > 0) {
+    throw new Error('Archive it instead — this account holds transactions');
+  }
+  store.accounts = store.accounts.filter((a) => a.id !== id);
+}
+
+// ----------------------------------------------------------------- transfers
+
+export async function createTransfer(input: TransferInput): Promise<TransferPair> {
+  const from = store.accounts.find((a) => a.id === input.fromAccountId);
+  const to = store.accounts.find((a) => a.id === input.toAccountId);
+  if (!from || !to) throw new Error('Both accounts must exist');
+  if (from.id === to.id) throw new Error('An account cannot transfer to itself');
+  if (from.currency !== to.currency) throw new Error('Currencies must match');
+
+  store.nextId += 1;
+  const outId = `server-${store.nextId}`;
+  store.nextId += 1;
+  const inId = `server-${store.nextId}`;
+
+  // Two rows, cross-linked, with no category — the shape V5 enforces.
+  const expense: Transaction = {
+    id: outId,
+    type: 'expense',
+    category: 'Transfer',
+    accountId: from.id,
+    isTransfer: true,
+    transferPairId: inId,
+    amount: input.amount,
+    date: input.date,
+    description: input.description,
+  };
+  const income: Transaction = {
+    id: inId,
+    type: 'income',
+    category: 'Transfer',
+    accountId: to.id,
+    isTransfer: true,
+    transferPairId: outId,
+    amount: input.amount,
+    date: input.date,
+    description: input.description,
+  };
+
+  store.transactions.push(expense, income);
+  return { from: expense, to: income };
+}
+
+export async function deleteTransfer(legId: string): Promise<void> {
+  const leg = store.transactions.find((row) => row.id === legId);
+  if (!leg) throw new Error(`No transaction ${legId}`);
+  const ids = [leg.id, leg.transferPairId].filter(Boolean);
+  store.transactions = store.transactions.filter((row) => !ids.includes(row.id));
+}
+
+// ------------------------------------------------------------------- budgets
+
+export async function listBudgets(): Promise<Budget[]> {
+  return store.budgets.map(withPosition);
+}
+
+/** Spend excludes transfers, exactly as the server's `reporting` specification does. */
+function withPosition(budget: Budget): Budget {
+  const spent = store.transactions
+    .filter(
+      (row) =>
+        !row.isTransfer &&
+        row.type === 'expense' &&
+        row.categoryId === budget.categoryId &&
+        row.date >= budget.periodStart &&
+        row.date <= budget.periodEnd,
+    )
+    .reduce((total, row) => total + row.amount, 0);
+
+  const percentUsed = budget.limit === 0 ? 0 : (spent / budget.limit) * 100;
+
+  return {
+    ...budget,
+    spent,
+    remaining: budget.limit - spent,
+    percentUsed,
+    status: percentUsed >= 100 ? 'EXCEEDED' : percentUsed >= 80 ? 'WARNING' : 'OK',
+  };
+}
+
+function periodBounds(period: Budget['period'], on: Date): [string, string] {
+  const year = on.getUTCFullYear();
+  const month = on.getUTCMonth();
+
+  if (period === 'YEARLY') {
+    return [`${year}-01-01`, `${year}-12-31`];
+  }
+  if (period === 'WEEKLY') {
+    // ISO weeks start on Monday.
+    const start = new Date(Date.UTC(year, month, on.getUTCDate()));
+    const offset = (start.getUTCDay() + 6) % 7;
+    start.setUTCDate(start.getUTCDate() - offset);
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 6);
+    return [start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)];
+  }
+  const start = new Date(Date.UTC(year, month, 1));
+  const end = new Date(Date.UTC(year, month + 1, 0));
+  return [start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)];
+}
+
+export async function createBudget(input: BudgetInput): Promise<Budget> {
+  const category = FAKE_CATEGORIES.find((c) => c.id === input.categoryId);
+  if (!category) throw new Error(`No category ${input.categoryId}`);
+  if (category.kind === 'income') throw new Error('Income cannot be budgeted');
+
+  const [periodStart, periodEnd] = periodBounds(input.period, new Date());
+  const created: Budget = {
+    id: `budget-${store.budgets.length + 1}`,
+    categoryId: category.id,
+    category: category.name,
+    categoryColour: category.colour,
+    period: input.period,
+    limit: input.limit,
+    startsOn: input.startsOn ?? periodStart,
+    periodStart,
+    periodEnd,
+    spent: 0,
+    remaining: input.limit,
+    percentUsed: 0,
+    status: 'OK',
+  };
+  store.budgets.push(created);
+  return withPosition(created);
+}
+
+export async function updateBudget(id: string, input: BudgetInput): Promise<Budget> {
+  const budget = store.budgets.find((b) => b.id === id);
+  if (!budget) throw new Error(`No budget ${id}`);
+  budget.limit = input.limit;
+  budget.period = input.period;
+  return withPosition(budget);
+}
+
+export async function deleteBudget(id: string): Promise<void> {
+  store.budgets = store.budgets.filter((b) => b.id !== id);
+}
+
+// ------------------------------------------------------------- notifications
+
+export async function listNotifications(): Promise<Notification[]> {
+  return [...store.notifications].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function fetchUnreadCount(): Promise<number> {
+  return store.notifications.filter((entry) => !entry.isRead).length;
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  const entry = store.notifications.find((n) => n.id === id);
+  if (entry) entry.isRead = true;
+}
+
+export async function markAllNotificationsRead(): Promise<number> {
+  const unread = store.notifications.filter((entry) => !entry.isRead);
+  unread.forEach((entry) => {
+    entry.isRead = true;
+  });
+  return unread.length;
 }
 
 /** The aggregates, computed over every row — as the real endpoint does. */
-export async function fetchSummary(): Promise<AnalyticsSummary> {
-  const rows = store.transactions;
+export async function fetchSummary(scope: AnalyticsScope = {}): Promise<AnalyticsSummary> {
+  // Transfers are excluded here and only here: they still count towards account
+  // balances above. A 250 transfer counted naively would add 250 of income and
+  // 250 of expense, inflating the month by 500 and reporting a balance change
+  // that never happened.
+  const rows = store.transactions.filter(
+    (row) => !row.isTransfer && (!scope.accountId || row.accountId === scope.accountId),
+  );
 
   const totalIncome = sum(rows.filter((row) => row.type === 'income'));
   const totalExpense = sum(rows.filter((row) => row.type === 'expense'));

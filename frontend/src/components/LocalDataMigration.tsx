@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Upload, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { CategoryOption } from '../api/categories';
-import type { Account } from '../api/accounts';
+import type { Account } from '../types';
 import { createTransaction } from '../api/transactions';
 import { queryKeys } from '../lib/queryClient';
 import {

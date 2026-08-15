@@ -33,6 +33,7 @@ function wireTransaction(overrides: Partial<WireTransaction> = {}): WireTransact
     currency: 'USD',
     occurredOn: '2026-08-10',
     description: 'Weekly shop',
+    transfer: false,
     ...overrides,
   };
 }
@@ -160,5 +161,72 @@ describe('writing a transaction', () => {
       type: 'INCOME',
       occurredOn: '2026-08-10',
     });
+  });
+});
+
+describe('transfer legs', () => {
+  // The bug this exists to prevent: Phase 4 declared categoryId and categoryName
+  // as required strings, which was true until V5 made a transfer categoryless.
+  // One transfer in the ledger would then have failed the whole page's parse,
+  // and the user would have seen an empty list with an error over real data.
+  it('parses a leg that carries no category', () => {
+    const leg = toTransaction({
+      id: 'txn-out',
+      accountId: 'acc-1',
+      categoryId: null,
+      categoryName: null,
+      type: 'EXPENSE',
+      amount: '250.00',
+      currency: 'USD',
+      occurredOn: '2026-08-10',
+      description: 'To savings',
+      transfer: true,
+      transferPairId: 'txn-in',
+    });
+
+    expect(leg.isTransfer).toBe(true);
+    expect(leg.categoryId).toBeUndefined();
+    // A label for the absence of a category, not a category — inventing a real
+    // "Transfer" row would put it in every picker, breakdown and budget.
+    expect(leg.category).toBe('Transfer');
+    expect(leg.transferPairId).toBe('txn-in');
+  });
+
+  it('reads a whole page containing a transfer', async () => {
+    respondWith(
+      wirePage([
+        wireTransaction(),
+        {
+          id: 'txn-out',
+          accountId: 'acc-1',
+          categoryId: null,
+          categoryName: null,
+          type: 'EXPENSE',
+          amount: '250.00',
+          currency: 'USD',
+          occurredOn: '2026-08-10',
+          transfer: true,
+          transferPairId: 'txn-in',
+        },
+      ]),
+    );
+
+    const page = await listTransactions();
+    expect(page.items).toHaveLength(2);
+    expect(page.items[1].isTransfer).toBe(true);
+  });
+
+  it('treats an ordinary transaction as not a transfer', () => {
+    const ordinary = toTransaction(wireTransaction());
+    expect(ordinary.isTransfer).toBe(false);
+    expect(ordinary.transferPairId).toBeUndefined();
+  });
+
+  it('sends the account filter the header selector sets', async () => {
+    const fetchMock = respondWith(wirePage([]));
+
+    await listTransactions({ filters: { accountId: 'acc-7' } });
+
+    expect(String(fetchMock.mock.calls[0][0])).toContain('accountId=acc-7');
   });
 });

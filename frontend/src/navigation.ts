@@ -3,6 +3,8 @@ export const SECTIONS = [
   { label: 'Overview', path: '/overview' },
   { label: 'Analytics', path: '/analytics' },
   { label: 'Transactions', path: '/transactions' },
+  { label: 'Accounts', path: '/accounts' },
+  { label: 'Budgets', path: '/budgets' },
   { label: 'Settings', path: '/settings' },
 ] as const;
 

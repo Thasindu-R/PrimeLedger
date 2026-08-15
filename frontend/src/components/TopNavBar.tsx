@@ -1,20 +1,42 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Leaf, ChevronDown, ArrowRight, Search, MessageCircle, Bell, Settings, HelpCircle, LogOut, Menu, X } from 'lucide-react';
-import type { Transaction } from '../types';
-import { formatDate, formatCurrency } from '../utils/formatCurrency';
+import { Leaf, ChevronDown, Search, MessageCircle, Bell, Settings, HelpCircle, LogOut, Menu, X } from 'lucide-react';
+import type { Account, Notification } from '../types';
 import { SECTIONS } from '../navigation';
+import { AccountSelector } from './AccountSelector';
+import { NotificationsMenu } from './NotificationsMenu';
 
 interface TopNavBarProps {
   userName: string;
   userHandle: string;
   avatarUrl?: string;
-  recentTransactions: Transaction[];
-  /** Phase 3 replaces this with a real session teardown (FR-04). */
+  /** Which ledger the app is showing, and how to change it (F-01). */
+  accounts: Account[];
+  selectedAccountId?: string;
+  onSelectAccount: (accountId: string | undefined) => void;
+  /** Budget alerts, behind the bell (F-02). */
+  notifications: Notification[];
+  unreadCount: number;
+  notificationsLoading: boolean;
+  onMarkNotificationRead: (id: string) => void;
+  onMarkAllNotificationsRead: () => void;
   onSignOut: () => void;
 }
 
-export function TopNavBar({ userName, userHandle, avatarUrl, recentTransactions, onSignOut }: TopNavBarProps) {
+export function TopNavBar({
+  userName,
+  userHandle,
+  avatarUrl,
+  accounts,
+  selectedAccountId,
+  onSelectAccount,
+  notifications,
+  unreadCount,
+  notificationsLoading,
+  onMarkNotificationRead,
+  onMarkAllNotificationsRead,
+  onSignOut,
+}: TopNavBarProps) {
   const [showProfile, setShowProfile] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -63,11 +85,12 @@ export function TopNavBar({ userName, userHandle, avatarUrl, recentTransactions,
           </div>
 
           {/* Account Selector */}
-          <div className="hidden md:flex items-center gap-2">
-            <span className="text-gray-500 text-sm">Personal account</span>
-            <ChevronDown size={14} className="text-gray-400" />
-            <ArrowRight size={14} className="text-gray-400" />
-            <span className="text-green-600 font-medium text-sm">Dashboard</span>
+          <div className="hidden md:block">
+            <AccountSelector
+              accounts={accounts}
+              selectedId={selectedAccountId}
+              onSelect={onSelectAccount}
+            />
           </div>
         </div>
 
@@ -96,60 +119,28 @@ export function TopNavBar({ userName, userHandle, avatarUrl, recentTransactions,
         <div className="relative" ref={notificationsRef}>
           <button
             onClick={() => setShowNotifications(!showNotifications)}
+            aria-label={
+              unreadCount > 0 ? `Alerts, ${unreadCount} unread` : 'Alerts'
+            }
             className="text-gray-500 hover:text-gray-700 transition-colors relative"
           >
             <Bell size={20} />
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full"></span>
+            {/* Only when there is something to see. A dot that is always lit
+                says nothing, which is what it did before Phase 5. */}
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 flex items-center justify-center bg-red-500 text-white text-[10px] font-semibold rounded-full">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
 
-          {/* Notifications Dropdown */}
           {showNotifications && (
-            <div className="absolute right-0 top-14 bg-white rounded-2xl shadow-lg border border-gray-100 w-72 max-w-[calc(100vw-2rem)] py-2 z-50">
-              {/* Header */}
-              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
-                <span className="font-semibold text-gray-800 text-sm">Recent Activity</span>
-                <button className="text-green-600 text-xs font-medium hover:text-green-700">
-                  Mark all read
-                </button>
-              </div>
-
-              {/* Content */}
-              <div className="py-2">
-                {recentTransactions.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-gray-300">
-                    <Bell size={32} />
-                    <p className="text-sm mt-2">No recent activity</p>
-                  </div>
-                ) : (
-                  recentTransactions.slice(0, 5).map((transaction) => (
-                    <div
-                      key={transaction.id}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer"
-                    >
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          transaction.type === 'income' ? 'bg-green-500' : 'bg-red-500'
-                        }`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-700 truncate">
-                          {transaction.description || transaction.category}
-                        </p>
-                        <p className="text-xs text-gray-400">{formatDate(transaction.date)}</p>
-                      </div>
-                      <span
-                        className={`text-sm font-medium ${
-                          transaction.type === 'income' ? 'text-green-600' : 'text-red-500'
-                        }`}
-                      >
-                        {transaction.type === 'income' ? '+' : '-'}
-                        {formatCurrency(transaction.amount)}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+            <NotificationsMenu
+              notifications={notifications}
+              isLoading={notificationsLoading}
+              onMarkRead={onMarkNotificationRead}
+              onMarkAllRead={onMarkAllNotificationsRead}
+            />
           )}
         </div>
 
@@ -249,6 +240,14 @@ export function TopNavBar({ userName, userHandle, avatarUrl, recentTransactions,
                 aria-label="Search (mobile)"
                 placeholder="Search"
                 className="bg-transparent border-none outline-none text-sm text-gray-500 placeholder-gray-400 flex-1"
+              />
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-lg px-1 py-0.5">
+              <AccountSelector
+                accounts={accounts}
+                selectedId={selectedAccountId}
+                onSelect={onSelectAccount}
               />
             </div>
 

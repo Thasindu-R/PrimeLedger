@@ -1,4 +1,4 @@
-import type { Transaction, TransactionType } from '../types';
+import type { Account, Transaction, TransactionType } from '../types';
 import { addDays, toIsoDate } from '../utils/dates';
 
 let seq = 0;
@@ -13,9 +13,26 @@ export function makeTransaction(overrides: Partial<Transaction> = {}): Transacti
     // Stable and derived from the name, so a test that cares about the id can
     // predict it and one that does not can ignore it.
     categoryId: `cat-${(overrides.category ?? 'Food').toLowerCase()}`,
+    accountId: 'acc-1',
+    isTransfer: false,
     amount: 1000,
     date: '2026-08-01',
     description: `Transaction ${seq}`,
+    ...overrides,
+  };
+}
+
+/** Build an account with sane defaults, for the tests that need a real one. */
+export function makeAccount(overrides: Partial<Account> = {}): Account {
+  return {
+    id: 'acc-1',
+    name: 'Everyday',
+    type: 'CHECKING',
+    currency: 'USD',
+    openingBalance: 0,
+    balance: 0,
+    isArchived: false,
+    transactionCount: 0,
     ...overrides,
   };
 }
