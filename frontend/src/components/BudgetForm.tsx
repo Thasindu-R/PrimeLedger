@@ -10,6 +10,11 @@ interface BudgetFormProps {
   budget?: Budget;
   /** Expense categories only — see the note below. */
   categories: CategoryOption[];
+  /**
+   * The currency a new budget will be created in — the caller's base. An
+   * existing budget uses its own, which is fixed and cannot be edited.
+   */
+  baseCurrency: string;
   onClose: () => void;
   onSubmit: (input: BudgetInput) => void;
 }
@@ -20,6 +25,7 @@ export function BudgetForm({
   isOpen,
   budget,
   categories,
+  baseCurrency,
   onClose,
   onSubmit,
 }: BudgetFormProps) {
@@ -27,6 +33,12 @@ export function BudgetForm({
   const [period, setPeriod] = useState<BudgetPeriod>(budget?.period ?? 'MONTHLY');
   const [limit, setLimit] = useState(budget ? String(budget.limit) : '');
   const [error, setError] = useState<string | undefined>();
+
+  // Displayed, not chosen. The server defaults it to the base currency and
+  // refuses to change it afterwards, so a picker here would offer a decision
+  // that is either redundant or rejected — and re-denominating an existing
+  // limit would keep the number while changing what it means.
+  const currency = budget?.currency ?? baseCurrency;
 
   if (!isOpen) return null;
 
@@ -119,7 +131,7 @@ export function BudgetForm({
 
           <div>
             <label htmlFor="budget-limit" className="mb-1 block text-sm text-gray-600">
-              Limit
+              Limit <span className="text-gray-400">({currency})</span>
             </label>
             <input
               id="budget-limit"
@@ -135,7 +147,9 @@ export function BudgetForm({
 
           <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
             You will hear from us once at 80% and once if you go over. Transfers
-            between your own accounts are not counted as spending.
+            between your own accounts are not counted as spending. Spending in
+            another currency is converted to {currency} at the rate on the day it
+            happened.
           </p>
 
           {error && (

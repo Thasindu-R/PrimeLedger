@@ -387,6 +387,9 @@ export async function createBudget(input: BudgetInput): Promise<Budget> {
     categoryColour: category.colour,
     period: input.period,
     limit: input.limit,
+    // The fake ledger is single-currency, as the real one is for most users.
+    currency: input.currency ?? 'USD',
+    unconverted: 0,
     startsOn: input.startsOn ?? periodStart,
     periodStart,
     periodEnd,

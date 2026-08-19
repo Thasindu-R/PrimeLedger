@@ -19,6 +19,7 @@ function makeBudget(overrides: Partial<Budget> = {}): Budget {
     category: 'Food',
     period: 'MONTHLY',
     limit,
+    currency: 'USD',
     startsOn: '2026-08-01',
     periodStart: '2026-08-01',
     periodEnd: '2026-08-31',
@@ -26,6 +27,7 @@ function makeBudget(overrides: Partial<Budget> = {}): Budget {
     remaining: limit - spent,
     percentUsed: (spent / limit) * 100,
     status: 'OK',
+    unconverted: 0,
     ...overrides,
   };
 }
@@ -42,6 +44,7 @@ function renderContent(props: Partial<React.ComponentProps<typeof BudgetsContent
     <BudgetsContent
       budgets={[]}
       categories={CATEGORIES}
+      baseCurrency="USD"
       isLoading={false}
       error={null}
       isMutating={false}
@@ -120,5 +123,37 @@ describe('BudgetsContent', () => {
     // "No budgets yet" would be a lie the user would act on by creating one.
     expect(screen.queryByText(/no budgets yet/i)).not.toBeInTheDocument();
     expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  /**
+   * The limit and the spend are both in the budget's own currency, which is not
+   * necessarily the app's default. Rendering a rupee budget with a dollar sign
+   * would be a plain lie about the number beside it.
+   */
+  it('renders a budget in its own currency rather than the app default', () => {
+    renderContent({
+      budgets: [makeBudget({ currency: 'EUR', limit: 1000, spent: 250 })],
+    });
+
+    expect(screen.getByText(/€250\.00 of €1,000\.00/)).toBeInTheDocument();
+  });
+
+  /**
+   * The one case where a budget can be over without the bar showing it: rows
+   * that could not be converted are absent from the spend, so the position is
+   * understated and looks entirely comfortable.
+   */
+  it('says so when spending is missing from the position', () => {
+    renderContent({ budgets: [makeBudget({ unconverted: 2, currency: 'USD' })] });
+
+    expect(
+      screen.getByText(/2 transactions could not be converted to USD/i),
+    ).toBeInTheDocument();
+  });
+
+  it('stays quiet when everything converted, which is the normal case', () => {
+    renderContent({ budgets: [makeBudget()] });
+
+    expect(screen.queryByText(/could not be converted/i)).not.toBeInTheDocument();
   });
 });

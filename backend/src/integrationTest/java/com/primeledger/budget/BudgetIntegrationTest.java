@@ -185,7 +185,8 @@ class BudgetIntegrationTest extends AbstractIntegrationTest {
                                         groceries.getId(),
                                         BudgetPeriod.MONTHLY,
                                         new BigDecimal("500.00"),
-                                        lastMonth)));
+                                        lastMonth,
+                                        null)));
         budget("1000.00");
 
         // Both rows survive; the current one is the one in force.
@@ -209,6 +210,7 @@ class BudgetIntegrationTest extends AbstractIntegrationTest {
                                                                 salary.getId(),
                                                                 BudgetPeriod.MONTHLY,
                                                                 new BigDecimal("100.00"),
+                                                                null,
                                                                 null))))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("income category");
@@ -227,7 +229,8 @@ class BudgetIntegrationTest extends AbstractIntegrationTest {
                                                                 groceries.getId(),
                                                                 BudgetPeriod.MONTHLY,
                                                                 new BigDecimal("100.00"),
-                                                                today.withDayOfMonth(17)))))
+                                                                today.withDayOfMonth(17),
+                                                                null))))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("first day");
     }
@@ -266,6 +269,7 @@ class BudgetIntegrationTest extends AbstractIntegrationTest {
                                         groceries.getId(),
                                         BudgetPeriod.MONTHLY,
                                         new BigDecimal(limit),
+                                        null,
                                         null)));
     }
 

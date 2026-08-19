@@ -112,6 +112,8 @@ export const budgetSchema = z.object({
   categoryColour: z.string().nullish(),
   period: budgetPeriodSchema,
   limitAmount: z.string(),
+  /** What the limit and the spend are both in (V8). */
+  currency: z.string(),
   startsOn: z.string(),
   periodStart: z.string(),
   periodEnd: z.string(),
@@ -121,6 +123,12 @@ export const budgetSchema = z.object({
   /** A number, not a money string: a percentage is not currency. Uncapped. */
   percentUsed: z.number(),
   status: budgetStatusSchema,
+  /**
+   * Matching transactions with no exchange rate, and so missing from `spent`.
+   * Non-zero means the position is understated — the budget may be over
+   * without appearing so.
+   */
+  unconverted: z.number().default(0),
 });
 export type WireBudget = z.infer<typeof budgetSchema>;
 

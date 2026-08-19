@@ -8,6 +8,12 @@ export interface BudgetInput {
   limit: number;
   /** Optional; the server defaults to the start of the period containing today. */
   startsOn?: string;
+  /**
+   * Optional, and deliberately not sent by the form. The server defaults it to
+   * the caller's base currency on create and refuses to change it on update, so
+   * the client naming it could only ever agree with the server or be rejected.
+   */
+  currency?: string;
 }
 
 /**
@@ -50,6 +56,7 @@ function toWire(input: BudgetInput) {
     period: input.period,
     limitAmount: input.limit.toFixed(2),
     startsOn: input.startsOn || undefined,
+    currency: input.currency || undefined,
   };
 }
 
@@ -61,6 +68,7 @@ export function toBudget(wire: WireBudget): Budget {
     categoryColour: wire.categoryColour ?? undefined,
     period: wire.period,
     limit: Number(wire.limitAmount),
+    currency: wire.currency,
     startsOn: wire.startsOn,
     periodStart: wire.periodStart,
     periodEnd: wire.periodEnd,
@@ -68,5 +76,6 @@ export function toBudget(wire: WireBudget): Budget {
     remaining: Number(wire.remaining),
     percentUsed: wire.percentUsed,
     status: wire.status,
+    unconverted: wire.unconverted,
   };
 }

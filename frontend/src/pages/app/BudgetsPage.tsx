@@ -12,7 +12,7 @@ import { useLedger } from '../ledgerContext';
  * for the three pages that never show them.
  */
 export function BudgetsPage() {
-  const { showToast, categories } = useLedger();
+  const { showToast, categories, baseCurrency } = useLedger();
   const budgets = useBudgets({ showToast });
 
   // Income cannot be budgeted, and the server enforces that with a 422. Offering
@@ -27,6 +27,7 @@ export function BudgetsPage() {
     <BudgetsContent
       budgets={budgets.budgets}
       categories={expenseCategories}
+      baseCurrency={baseCurrency}
       isLoading={budgets.isLoading}
       error={budgets.error}
       onRetry={budgets.refetch}

@@ -106,9 +106,14 @@ public class BudgetEvaluator {
                         ? "%s is over budget".formatted(category)
                         : "%s is nearly over budget".formatted(category);
 
+        // The currency is named because it no longer has to be the one the user
+        // reads everything else in: a budget carries its own since V8, and "you
+        // have spent 48,000 of your 50,000 limit" is ambiguous the moment two
+        // currencies are in play.
         String body =
-                "You have spent %s of your %s limit for %s."
+                "You have spent %s %s of your %s limit for %s."
                         .formatted(
+                                budget.getCurrency(),
                                 money(position.spent()),
                                 money(budget.getLimitAmount()),
                                 period);

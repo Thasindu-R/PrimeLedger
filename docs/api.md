@@ -176,6 +176,23 @@ the one state a ledger must not reach.
 | PUT | `/budgets/{id}` | Only for a period that has not ended (422) |
 | DELETE | `/budgets/{id}` | 204 |
 
+**A budget carries its own `currency`** (V8), optional on create and defaulting
+to the caller's base. Spending recorded in other currencies is converted *into*
+it at the rate on each transaction's own date; the limit itself is never
+converted. That asymmetry is the point — a limit is a statement the user made in
+one currency, and re-denominating it would keep the number while changing what
+it means, so `PUT` refuses a currency that differs from the stored one (422).
+
+`unconverted` counts matching transactions that had no exchange rate. They are
+**missing from `spent`**, so a non-zero value means the position is understated
+and the budget may be over without appearing so. This is the only way a budget
+can be over while the progress bar says otherwise, and a client that ignores the
+field will show a comfortable bar over incomplete data.
+
+Before V8 the limit had no currency and `spendByCategory` summed a category
+across every account raw, so a rupee expense was compared against a dollar limit
+as though the two numbers were commensurable.
+
 A budget row says "from `startsOn`, the limit for this category is this much".
 The limit in force on any day is the latest row that had started by then, so
 raising August's grocery budget leaves July reporting against the limit that

@@ -92,7 +92,8 @@ public interface TransactionRepository
             @Param("deletedAt") Instant deletedAt);
 
     /**
-     * Expenditure per category over one date window, for the budget panel (F-02).
+     * Expenditure per category over one date window, expressed in {@code
+     * currency}, for the budget panel (F-02).
      *
      * <p>Grouped rather than one query per budget, because the dashboard shows
      * every budget at once and a query each would be an N+1 on the busiest
@@ -102,29 +103,55 @@ public interface TransactionRepository
      * since V5 is the same set of rows. Moving money to a savings account is not
      * spending it, and counting it against a budget would tell the user they had
      * blown a limit by saving.
+     *
+     * <p><strong>Converted, since V8.</strong> This sums one category across
+     * every account the user holds, and those accounts need not share a
+     * currency. Summing the raw amounts compared 50,000 rupees against a limit
+     * of 500 dollars and reported 10,000% with complete confidence. Each row is
+     * converted at the rate on its own date — the same rule the analytics
+     * aggregates use, and for the same reason: after the GROUP BY the individual
+     * dates are gone.
+     *
+     * <p>Native rather than JPQL because {@code fx_convert} is a database
+     * function and the type predicate is over the enum's stored text form, which
+     * JPQL cannot express without naming the converter. {@code unconvertible}
+     * counts rows the function could not price; they are absent from {@code
+     * spent}, so a caller that ignores the count will report a budget as
+     * comfortably under when it may not be.
      */
     @Query(
-            """
-            select t.category.id as categoryId, coalesce(sum(t.amount), 0) as spent
-              from Transaction t
-             where t.userId = :userId
-               and t.deletedAt is null
-               and t.transfer = false
-               and t.type = :type
-               and t.occurredOn between :from and :to
-             group by t.category.id
-            """)
+            value =
+                    """
+                    select t.category_id                                            as categoryId,
+                           coalesce(sum(fx_convert(t.amount, t.currency,
+                                                   :currency, t.occurred_on)), 0)   as spent,
+                           coalesce(sum(case when fx_convert(t.amount, t.currency,
+                                                             :currency, t.occurred_on) is null
+                                             then 1 else 0 end), 0)                 as unconvertible
+                    from transactions t
+                    where t.user_id = :userId
+                      and t.deleted_at is null
+                      and t.is_transfer = false
+                      and t.type = :type
+                      and t.occurred_on between :from and :to
+                    group by t.category_id
+                    """,
+            nativeQuery = true)
     java.util.List<CategorySpend> spendByCategory(
             @Param("userId") UUID userId,
-            @Param("type") TransactionType type,
+            @Param("type") String type,
             @Param("from") java.time.LocalDate from,
-            @Param("to") java.time.LocalDate to);
+            @Param("to") java.time.LocalDate to,
+            @Param("currency") String currency);
 
     /** Projection for {@link #spendByCategory}. */
     interface CategorySpend {
         UUID getCategoryId();
 
         java.math.BigDecimal getSpent();
+
+        /** Rows with no exchange rate, and so missing from {@link #getSpent()}. */
+        long getUnconvertible();
     }
 
     /**

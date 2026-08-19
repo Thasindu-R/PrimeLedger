@@ -14,6 +14,8 @@ interface BudgetsContentProps {
   budgets: Budget[];
   /** Expense categories, for the form. */
   categories: CategoryOption[];
+  /** What a new budget will be denominated in — the caller's base currency. */
+  baseCurrency: string;
   isLoading: boolean;
   error: unknown;
   onRetry: () => void;
@@ -33,6 +35,7 @@ const STATUS_STYLES: Record<BudgetStatus, { bar: string; text: string; label: st
 export function BudgetsContent({
   budgets,
   categories,
+  baseCurrency,
   isLoading,
   error,
   onRetry,
@@ -116,6 +119,7 @@ export function BudgetsContent({
         isOpen={isFormOpen}
         budget={editing}
         categories={categories}
+        baseCurrency={baseCurrency}
         onClose={() => {
           setIsFormOpen(false);
           setEditing(undefined);
@@ -219,15 +223,27 @@ function BudgetRow({
 
         <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-x-3 text-xs">
           <span className="text-gray-500">
-            {formatCurrency(budget.spent)} of {formatCurrency(budget.limit)}
+            {formatCurrency(budget.spent, budget.currency)} of{' '}
+            {formatCurrency(budget.limit, budget.currency)}
           </span>
           <span className={style.text}>
             {Math.round(budget.percentUsed)}% ·{' '}
             {budget.remaining >= 0
-              ? `${formatCurrency(budget.remaining)} left`
-              : `${formatCurrency(Math.abs(budget.remaining))} over`}
+              ? `${formatCurrency(budget.remaining, budget.currency)} left`
+              : `${formatCurrency(Math.abs(budget.remaining), budget.currency)} over`}
           </span>
         </div>
+
+        {/* An understated position looks exactly like a comfortable one, so the
+            rows that are missing have to be named. This is the only case where
+            a budget can be over without the bar showing it. */}
+        {budget.unconverted > 0 && (
+          <p className="mt-1.5 text-xs text-amber-600">
+            {budget.unconverted} transaction{budget.unconverted === 1 ? '' : 's'} could not
+            be converted to {budget.currency} and {budget.unconverted === 1 ? 'is' : 'are'} not
+            counted here.
+          </p>
+        )}
       </div>
     </li>
   );

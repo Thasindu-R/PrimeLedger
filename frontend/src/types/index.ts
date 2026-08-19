@@ -129,6 +129,13 @@ export interface Budget {
   categoryColour?: string;
   period: BudgetPeriod;
   limit: number;
+  /**
+   * What `limit` and `spent` are both in. Fixed when the budget is created:
+   * spending is converted into it, and the limit is never converted into
+   * anything, so changing the reporting currency cannot change what a limit
+   * means.
+   */
+  currency: string;
   startsOn: string;
   /** The window every figure below describes — not all time. */
   periodStart: string;
@@ -139,6 +146,8 @@ export interface Budget {
   /** Uncapped: "340% of your dining budget" is the fact the user needs. */
   percentUsed: number;
   status: BudgetStatus;
+  /** Transactions with no exchange rate, and so absent from `spent`. */
+  unconverted: number;
 }
 
 export type Frequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';

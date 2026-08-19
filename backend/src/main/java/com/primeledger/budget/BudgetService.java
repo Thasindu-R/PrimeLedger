@@ -6,6 +6,7 @@ import com.primeledger.category.Category;
 import com.primeledger.category.CategoryKind;
 import com.primeledger.category.CategoryService;
 import com.primeledger.common.ApiException;
+import com.primeledger.profile.ProfileService;
 import com.primeledger.security.CurrentUserProvider;
 import com.primeledger.transaction.TransactionRepository;
 import com.primeledger.transaction.TransactionType;
@@ -30,6 +31,7 @@ public class BudgetService {
     private final BudgetRepository budgets;
     private final TransactionRepository transactions;
     private final CategoryService categories;
+    private final ProfileService profiles;
     private final CurrentUserProvider currentUser;
     private final Clock clock;
 
@@ -37,11 +39,13 @@ public class BudgetService {
             BudgetRepository budgets,
             TransactionRepository transactions,
             CategoryService categories,
+            ProfileService profiles,
             CurrentUserProvider currentUser,
             Clock clock) {
         this.budgets = budgets;
         this.transactions = transactions;
         this.categories = categories;
+        this.profiles = profiles;
         this.currentUser = currentUser;
         this.clock = clock;
     }
@@ -77,6 +81,14 @@ public class BudgetService {
         budget.setCategory(category);
         budget.setPeriod(request.period());
         budget.setLimitAmount(request.limitAmount());
+        // Defaulted from the profile rather than required on the wire: the
+        // currency a user means is overwhelmingly the one they already report
+        // in, and making them state it on every budget would be asking a
+        // question whose answer we hold.
+        budget.setCurrency(
+                request.currency() == null
+                        ? profiles.baseCurrencyOf(userId)
+                        : request.currency());
         budget.setStartsOn(startsOn);
 
         try {
@@ -113,6 +125,16 @@ public class BudgetService {
                             + "one for the other category.");
         }
 
+        // Re-denominating a limit in place would change what it means without
+        // changing the number: 500 dollars becoming 500 rupees, with the period
+        // it has already been reported against unchanged. The same reasoning
+        // that makes an account's currency immutable once it holds transactions.
+        if (request.currency() != null && !request.currency().equals(budget.getCurrency())) {
+            throw ApiException.businessRule(
+                    "A budget's currency cannot be changed — the limit would keep its number "
+                            + "and change its meaning. Delete it and set a new one.");
+        }
+
         budget.setLimitAmount(request.limitAmount());
         budgets.saveAndFlush(budget);
 
@@ -140,56 +162,68 @@ public class BudgetService {
         List<Budget> effective = budgets.findEffectiveOn(userId, on);
         if (effective.isEmpty()) return List.of();
 
-        // One spend query per distinct period length, not one per budget: at most
-        // three, however many budgets the user has.
-        Map<BudgetPeriod, Map<UUID, BigDecimal>> spendByPeriod =
-                new EnumMap<>(BudgetPeriod.class);
+        // One spend query per distinct (period, currency) pair rather than per
+        // budget. Currency joined the key in V8: spending is converted into the
+        // budget's own currency, so two budgets of the same period length in
+        // different currencies are genuinely two different questions and cannot
+        // share an answer. A user whose accounts and budgets are all in one
+        // currency — which is nearly all of them — still gets at most three.
+        Map<SpendKey, Map<UUID, Spend>> spendByKey = new HashMap<>();
 
         for (Budget budget : effective) {
-            spendByPeriod.computeIfAbsent(
-                    budget.getPeriod(), period -> spendFor(userId, period, on));
+            spendByKey.computeIfAbsent(
+                    new SpendKey(budget.getPeriod(), budget.getCurrency()),
+                    key -> spendFor(userId, key, on));
         }
 
         List<Position> positions = new ArrayList<>(effective.size());
         for (Budget budget : effective) {
-            BigDecimal spent =
-                    spendByPeriod
-                            .get(budget.getPeriod())
-                            .getOrDefault(budget.getCategory().getId(), BigDecimal.ZERO);
-            positions.add(position(budget, spent, on));
+            Spend spend =
+                    spendByKey
+                            .get(new SpendKey(budget.getPeriod(), budget.getCurrency()))
+                            .getOrDefault(budget.getCategory().getId(), Spend.NONE);
+            positions.add(position(budget, spend, on));
         }
         return positions;
     }
 
-    private Map<UUID, BigDecimal> spendFor(UUID userId, BudgetPeriod period, LocalDate on) {
-        Map<UUID, BigDecimal> byCategory = new HashMap<>();
+    private Map<UUID, Spend> spendFor(UUID userId, SpendKey key, LocalDate on) {
+        Map<UUID, Spend> byCategory = new HashMap<>();
         transactions
                 .spendByCategory(
                         userId,
-                        TransactionType.EXPENSE,
-                        period.startOfPeriodContaining(on),
-                        period.endOfPeriodContaining(on))
-                .forEach(row -> byCategory.put(row.getCategoryId(), row.getSpent()));
+                        // The enum's stored form: the query is native, so it
+                        // compares against the text the column actually holds.
+                        TransactionType.EXPENSE.name().toLowerCase(),
+                        key.period().startOfPeriodContaining(on),
+                        key.period().endOfPeriodContaining(on),
+                        key.currency())
+                .forEach(
+                        row ->
+                                byCategory.put(
+                                        row.getCategoryId(),
+                                        new Spend(row.getSpent(), row.getUnconvertible())));
         return byCategory;
     }
 
     private BudgetResponse positionOf(Budget budget, UUID userId) {
         LocalDate today = LocalDate.now(clock);
-        BigDecimal spent =
-                spendFor(userId, budget.getPeriod(), today)
-                        .getOrDefault(budget.getCategory().getId(), BigDecimal.ZERO);
-        return toResponse(position(budget, spent, today));
+        Spend spend =
+                spendFor(userId, new SpendKey(budget.getPeriod(), budget.getCurrency()), today)
+                        .getOrDefault(budget.getCategory().getId(), Spend.NONE);
+        return toResponse(position(budget, spend, today));
     }
 
-    private static Position position(Budget budget, BigDecimal spent, LocalDate on) {
-        double percent = BudgetStatus.percentUsed(spent, budget.getLimitAmount());
+    private static Position position(Budget budget, Spend spend, LocalDate on) {
+        double percent = BudgetStatus.percentUsed(spend.amount(), budget.getLimitAmount());
         return new Position(
                 budget,
-                spent,
+                spend.amount(),
                 budget.getPeriod().startOfPeriodContaining(on),
                 budget.getPeriod().endOfPeriodContaining(on),
                 percent,
-                BudgetStatus.of(percent));
+                BudgetStatus.of(percent),
+                spend.unconvertible());
     }
 
     private LocalDate resolveStart(BudgetRequest request) {
@@ -229,25 +263,45 @@ public class BudgetService {
                 budget.getCategory().getColour(),
                 budget.getPeriod(),
                 money(budget.getLimitAmount()),
+                budget.getCurrency(),
                 budget.getStartsOn(),
                 position.periodStart(),
                 position.periodEnd(),
                 money(position.spent()),
                 money(budget.getLimitAmount().subtract(position.spent())),
                 Math.round(position.percentUsed() * 10) / 10.0,
-                position.status());
+                position.status(),
+                position.unconverted());
     }
 
     private static String money(BigDecimal value) {
         return value.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
-    /** A budget plus where it stands in one period. */
+    /**
+     * A budget plus where it stands in one period.
+     *
+     * @param spent expenditure converted into the budget's currency
+     * @param unconverted matching transactions that had no exchange rate and are
+     *     therefore <em>missing</em> from {@code spent}. Non-zero means the
+     *     position is understated — the budget may be over without appearing so,
+     *     which is why the evaluator declines to celebrate a pass it cannot
+     *     stand behind.
+     */
     public record Position(
             Budget budget,
             BigDecimal spent,
             LocalDate periodStart,
             LocalDate periodEnd,
             double percentUsed,
-            BudgetStatus status) {}
+            BudgetStatus status,
+            long unconverted) {}
+
+    /** What a spend query is asked for: one period length, one currency. */
+    private record SpendKey(BudgetPeriod period, String currency) {}
+
+    /** What it answers with. */
+    private record Spend(BigDecimal amount, long unconvertible) {
+        private static final Spend NONE = new Spend(BigDecimal.ZERO, 0);
+    }
 }

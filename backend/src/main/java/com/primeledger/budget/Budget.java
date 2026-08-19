@@ -16,6 +16,8 @@ import java.util.UUID;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 /**
  * A spending limit for one category over one repeating period (F-02).
@@ -53,6 +55,20 @@ public class Budget extends Auditable {
 
     @Column(name = "limit_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal limitAmount;
+
+    /**
+     * What {@link #limitAmount} is denominated in (V8).
+     *
+     * <p>Fixed at creation. Spending is converted into this for comparison,
+     * rather than the limit being converted into anything — so a user who
+     * changes the currency they report in still has a grocery budget that means
+     * what it meant when they set it.
+     */
+    // CHAR(3) in V8, which PostgreSQL reports as bpchar; without this Hibernate
+    // expects varchar and fails validation on start-up.
+    @JdbcTypeCode(SqlTypes.CHAR)
+    @Column(name = "currency", nullable = false, length = 3)
+    private String currency;
 
     @Column(name = "starts_on", nullable = false)
     private LocalDate startsOn;
