@@ -31,6 +31,10 @@ interface AnalyticsContentProps {
   /** Transactions in the ledger, not on the page. */
   transactionCount: number;
   highestExpense: number;
+  /** The currency every figure here is expressed in (F-05). */
+  reportingCurrency?: string;
+  /** Transactions with no exchange rate, and so missing from the totals. */
+  unconvertedCount?: number;
   monthlySeries: MonthlyPoint[];
   expenseByCategory: CategoryBreakdown[];
   incomeByCategory: CategoryBreakdown[];
@@ -66,6 +70,8 @@ export function AnalyticsContent({
   summary,
   transactionCount,
   highestExpense,
+  reportingCurrency,
+  unconvertedCount = 0,
   monthlySeries,
   expenseByCategory,
   incomeByCategory,
@@ -85,6 +91,26 @@ export function AnalyticsContent({
 
   return (
     <div className="space-y-4">
+      {/* An understated total looks exactly like a correct one, so the only
+          honest thing to do is say which rows are not in it (F-05). Shown only
+          when it has happened — a banner that is always there is one nobody
+          reads on the day it matters. */}
+      {unconvertedCount > 0 && (
+        <div
+          role="status"
+          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+        >
+          <span className="font-medium">
+            {unconvertedCount} transaction{unconvertedCount === 1 ? ' is' : 's are'} missing
+            from these totals.
+          </span>{' '}
+          No exchange rate has been published for
+          {unconvertedCount === 1 ? ' its' : ' their'} currency
+          {reportingCurrency ? `, so it could not be converted to ${reportingCurrency}` : ''}.
+          The amounts are stored correctly and appear in the transaction list.
+        </div>
+      )}
+
       {/* Section 1 - Summary Stat Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         {/* Total Transactions */}

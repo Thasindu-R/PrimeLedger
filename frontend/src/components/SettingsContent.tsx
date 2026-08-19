@@ -1,12 +1,17 @@
 import { useId, useState } from 'react';
-import { User, Database, Download, Info, ExternalLink } from 'lucide-react';
-import type { Transaction } from '../types';
+import { User, Database, Download, Info, ExternalLink, Globe } from 'lucide-react';
+import type { Currency, Transaction } from '../types';
 import { downloadCsv, exportFilename, transactionsToCsv } from '../utils/csv';
 import { ConfirmDialog } from './ConfirmDialog';
 
 interface SettingsContentProps {
   userName: string;
   onUserNameChange: (name: string) => void;
+  /** The currency every reporting total is expressed in (F-05). */
+  baseCurrency: string;
+  /** Everything selectable, with today's rate where one has been published. */
+  currencies: Currency[];
+  onBaseCurrencyChange: (code: string) => void;
   onClearAll: () => void;
   /**
    * How many transactions the account holds, from the server. Counting a page
@@ -22,6 +27,9 @@ interface SettingsContentProps {
 export function SettingsContent({
   userName,
   onUserNameChange,
+  baseCurrency,
+  currencies,
+  onBaseCurrencyChange,
   onClearAll,
   transactionCount,
   fetchAllTransactions,
@@ -33,7 +41,17 @@ export function SettingsContent({
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const nameId = useId();
+  const currencyId = useId();
   const inputName = draftName ?? userName;
+
+  // The saved currency may not be in the provider's list — someone can hold an
+  // account in a currency nobody quotes. Offering the list without it would
+  // silently show the select as something else.
+  const currencyOptions = currencies.some((currency) => currency.code === baseCurrency)
+    ? currencies
+    : [{ code: baseCurrency, name: baseCurrency }, ...currencies];
+
+  const selected = currencies.find((currency) => currency.code === baseCurrency);
 
   const handleSaveName = () => {
     onUserNameChange(inputName);
@@ -101,7 +119,51 @@ export function SettingsContent({
         </div>
       </div>
 
-      {/* Card 2 - Data Management */}
+      {/* Card 2 - Reporting currency (F-05) */}
+      <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-1">Reporting currency</h2>
+        <p className="text-sm text-gray-400 mb-6">
+          What your totals are added up in
+        </p>
+
+        <div className="space-y-4">
+          <div>
+            <label htmlFor={currencyId} className="block text-sm font-medium text-gray-700 mb-2">
+              Currency
+            </label>
+            <select
+              id={currencyId}
+              value={baseCurrency}
+              onChange={(event) => onBaseCurrencyChange(event.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-gray-300 transition-colors"
+            >
+              {currencyOptions.map((currency) => (
+                <option key={currency.code} value={currency.code}>
+                  {currency.code} — {currency.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* The distinction this whole feature turns on, in one box. */}
+          <div className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+            <Globe size={20} className="text-gray-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-gray-600">
+              Each account keeps its own currency and every amount is stored
+              exactly as it was spent. This only changes what the totals are
+              converted to — at the rate that applied on each transaction's own
+              date, so last year's figures do not move when today's rate does.
+              {selected?.asOf && (
+                <span className="block mt-1 text-xs text-gray-400">
+                  Rates last published {selected.asOf}.
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Card 3 - Data Management */}
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-1">Data</h2>
         <p className="text-sm text-gray-400 mb-6">Manage your stored transaction data</p>

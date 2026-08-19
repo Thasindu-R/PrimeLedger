@@ -9,6 +9,8 @@ export function AnalyticsPage() {
     summary,
     ledgerCount,
     highestExpense,
+    reportingCurrency,
+    unconvertedCount,
     monthlySeries,
     expenseByCategory,
     incomeByCategory,
@@ -55,6 +57,8 @@ export function AnalyticsPage() {
       summary={summary}
       transactionCount={ledgerCount}
       highestExpense={highestExpense}
+      reportingCurrency={reportingCurrency}
+      unconvertedCount={unconvertedCount}
       monthlySeries={monthlySeries}
       expenseByCategory={expenseByCategory}
       incomeByCategory={incomeByCategory}

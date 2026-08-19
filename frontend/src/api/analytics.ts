@@ -28,6 +28,17 @@ export interface AnalyticsSummary {
   byCategory: CategoryTotal[];
   /** Oldest first. Only months with activity appear. */
   monthly: MonthlyBucket[];
+  /**
+   * The currency every figure above is expressed in — the profile's base,
+   * converted per transaction at the rate on its own date (F-05).
+   */
+  currency?: string;
+  /**
+   * How many of `count` had no exchange rate and are therefore *missing* from
+   * the totals. Normally zero; anything else means the figures understate the
+   * ledger and the page has to say so rather than present them as complete.
+   */
+  unconverted: number;
 }
 
 /** What the figures below describe. Empty means the whole ledger. */
@@ -81,5 +92,7 @@ export async function fetchSummary(scope: AnalyticsScope = {}): Promise<Analytic
       income: Number(row.income),
       expense: Number(row.expense),
     })),
+    currency: parsed.totals.currency ?? undefined,
+    unconverted: parsed.totals.unconverted,
   };
 }

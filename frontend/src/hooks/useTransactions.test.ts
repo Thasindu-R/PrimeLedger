@@ -58,6 +58,8 @@ beforeEach(() => {
     totals: { totalIncome: 5000, totalExpense: 2000, balance: 3000 },
     count: 42,
     highestExpense: 900,
+    currency: 'USD',
+    unconverted: 0,
     byCategory: [
       {
         categoryId: GROCERIES,

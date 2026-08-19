@@ -471,6 +471,11 @@ export async function fetchSummary(scope: AnalyticsScope = {}): Promise<Analytic
     totals: { totalIncome, totalExpense, balance: totalIncome - totalExpense },
     count: rows.length,
     highestExpense: expenses.length === 0 ? 0 : Math.max(...expenses.map((r) => r.amount)),
+    // The fake ledger is single-currency, as the real one is for most users, so
+    // nothing is ever unconvertible here. A test that wants the warning banner
+    // overrides this.
+    currency: 'USD',
+    unconverted: 0,
     byCategory: [...categories.entries()].map(([key, value]) => ({
       categoryId: key,
       category: key.split(':')[1],

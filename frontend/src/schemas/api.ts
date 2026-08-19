@@ -137,6 +137,78 @@ export const notificationSchema = z.object({
 });
 export type WireNotification = z.infer<typeof notificationSchema>;
 
+export const frequencySchema = z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']);
+export type WireFrequency = z.infer<typeof frequencySchema>;
+
+export const recurringRuleSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  accountId: z.string(),
+  accountName: z.string().nullish(),
+  categoryId: z.string(),
+  categoryName: z.string(),
+  categoryColour: z.string().nullish(),
+  type: wireTypeSchema,
+  amount: z.string(),
+  currency: z.string(),
+  description: z.string().nullish(),
+  frequency: frequencySchema,
+  interval: z.number(),
+  startsOn: z.string(),
+  /** Null once the rule is finished — there is no next occurrence. */
+  nextRunOn: z.string().nullish(),
+  endsOn: z.string().nullish(),
+  paused: z.boolean(),
+  finished: z.boolean(),
+  lastRunOn: z.string().nullish(),
+  generatedCount: z.number(),
+});
+export type WireRecurringRule = z.infer<typeof recurringRuleSchema>;
+
+export const goalSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  accountId: z.string(),
+  accountName: z.string().nullish(),
+  accountColour: z.string().nullish(),
+  currency: z.string().nullish(),
+  targetAmount: z.string(),
+  targetDate: z.string().nullish(),
+  currentAmount: z.string(),
+  remaining: z.string(),
+  /** A percentage, so a number rather than a money string. Uncapped. */
+  progressPercent: z.number(),
+  achieved: z.boolean(),
+  requiredMonthly: z.string().nullish(),
+  monthlyRate: z.string(),
+  projectedCompletion: z.string().nullish(),
+  /** Three-valued: true, false, or absent when there is no target date. */
+  onTrack: z.boolean().nullish(),
+  contributionFrom: z.string(),
+  contributionTo: z.string(),
+});
+export type WireGoal = z.infer<typeof goalSchema>;
+
+export const currencySchema = z.object({
+  code: z.string(),
+  name: z.string(),
+  /** Null for a currency the provider does not quote — still selectable. */
+  rate: z.string().nullish(),
+  asOf: z.string().nullish(),
+});
+export type WireCurrency = z.infer<typeof currencySchema>;
+
+export const profileSchema = z.object({
+  id: z.string(),
+  displayName: z.string(),
+  avatarUrl: z.string().nullish(),
+  baseCurrency: z.string(),
+  locale: z.string(),
+  theme: z.string(),
+  dateFormat: z.string(),
+});
+export type WireProfile = z.infer<typeof profileSchema>;
+
 export const summarySchema = z.object({
   totals: z.object({
     income: z.string(),
@@ -144,6 +216,14 @@ export const summarySchema = z.object({
     balance: z.string(),
     count: z.number(),
     highestExpense: z.string(),
+    /**
+     * The base currency the three amounts above are expressed in, and how many
+     * of `count` had no exchange rate and are therefore *missing* from them
+     * (F-05). Defaulted rather than required so a client running against a
+     * pre-Phase-6 API still parses.
+     */
+    currency: z.string().nullish(),
+    unconverted: z.number().default(0),
   }),
   byCategory: z.array(
     z.object({

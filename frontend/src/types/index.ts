@@ -141,6 +141,107 @@ export interface Budget {
   status: BudgetStatus;
 }
 
+export type Frequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+
+export const FREQUENCY_LABELS: Record<Frequency, string> = {
+  DAILY: 'Daily',
+  WEEKLY: 'Weekly',
+  MONTHLY: 'Monthly',
+  YEARLY: 'Yearly',
+};
+
+/** "Every 2 weeks", "Every month" — the interval read out loud. */
+export function describeSchedule(frequency: Frequency, interval: number): string {
+  const unit = { DAILY: 'day', WEEKLY: 'week', MONTHLY: 'month', YEARLY: 'year' }[frequency];
+  return interval === 1 ? `Every ${unit}` : `Every ${interval} ${unit}s`;
+}
+
+/**
+ * A standing instruction to create a transaction on a schedule (F-03).
+ *
+ * <p>What it generates are ordinary transactions — the list shows them like any
+ * other row, and editing one changes that month only. The rule is the template,
+ * not the owner.
+ */
+export interface RecurringRule {
+  id: string;
+  name: string;
+  accountId: string;
+  accountName?: string;
+  categoryId: string;
+  category: string;
+  categoryColour?: string;
+  type: TransactionType;
+  amount: number;
+  currency: string;
+  description?: string;
+  frequency: Frequency;
+  interval: number;
+  startsOn: string;
+  /** The next occurrence not yet created. Absent once `isFinished`. */
+  nextRunOn?: string;
+  endsOn?: string;
+  isPaused: boolean;
+  /** The end date has passed. Unlike `isPaused`, the user cannot undo it. */
+  isFinished: boolean;
+  lastRunOn?: string;
+  generatedCount: number;
+}
+
+/**
+ * A savings target and where it is heading (F-04).
+ *
+ * <p>`monthlyRate` is what the user has actually been saving; `requiredMonthly`
+ * is what the deadline asks for. The gap between the two is the whole point of
+ * the card.
+ */
+export interface Goal {
+  id: string;
+  name: string;
+  accountId: string;
+  accountName?: string;
+  accountColour?: string;
+  currency?: string;
+  targetAmount: number;
+  targetDate?: string;
+  currentAmount: number;
+  remaining: number;
+  /** Uncapped, and negative if the account is overdrawn. */
+  progressPercent: number;
+  isAchieved: boolean;
+  /** Absent when the goal is met or has no deadline. */
+  requiredMonthly?: number;
+  /** Observed over the trailing window; negative when the account is drawn down. */
+  monthlyRate: number;
+  /** Absent when met, or when the current rate never gets there. */
+  projectedCompletion?: string;
+  /** Absent when there is no target date, so nothing to be on track for. */
+  isOnTrack?: boolean;
+  contributionFrom: string;
+  contributionTo: string;
+}
+
+/** A currency the app can hold an account in, priced against the base (F-05). */
+export interface Currency {
+  code: string;
+  name: string;
+  /** Units of this currency per unit of the base. Absent when unpublished. */
+  rate?: number;
+  /** The date that rate was published — shown beside any converted figure. */
+  asOf?: string;
+}
+
+export interface Profile {
+  id: string;
+  displayName: string;
+  avatarUrl?: string;
+  /** The currency every reporting total is expressed in (F-05). */
+  baseCurrency: string;
+  locale: string;
+  theme: string;
+  dateFormat: string;
+}
+
 export interface Notification {
   id: string;
   kind: string;

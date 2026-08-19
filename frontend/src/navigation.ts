@@ -5,6 +5,8 @@ export const SECTIONS = [
   { label: 'Transactions', path: '/transactions' },
   { label: 'Accounts', path: '/accounts' },
   { label: 'Budgets', path: '/budgets' },
+  { label: 'Recurring', path: '/recurring' },
+  { label: 'Goals', path: '/goals' },
   { label: 'Settings', path: '/settings' },
 ] as const;
 

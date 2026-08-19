@@ -18,6 +18,8 @@ import { AnalyticsPage } from './pages/app/AnalyticsPage';
 import { TransactionsPage } from './pages/app/TransactionsPage';
 import { AccountsPage } from './pages/app/AccountsPage';
 import { BudgetsPage } from './pages/app/BudgetsPage';
+import { RecurringPage } from './pages/app/RecurringPage';
+import { GoalsPage } from './pages/app/GoalsPage';
 import { SettingsPage } from './pages/app/SettingsPage';
 import { RequireAnonymous, RequireAuth } from './auth/RequireAuth';
 import { useAuth } from './auth/authContext';
@@ -38,7 +40,7 @@ function AppShell() {
   const [formSession, setFormSession] = useState(0);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const { toasts, showToast, removeToast } = useToast();
-  const { displayName, setDisplayName, handle } = useProfile();
+  const { displayName, setDisplayName, baseCurrency, setBaseCurrency, handle } = useProfile();
   const { signOut } = useAuth();
 
   // No navigate() afterwards: clearing the session makes RequireAuth redirect,
@@ -148,6 +150,15 @@ function AppShell() {
     showToast('Display name updated.', 'success');
   };
 
+  // Changing this re-expresses every reporting total at the rates that applied
+  // on each transaction's own date. Nothing stored moves, which is the part
+  // worth saying out loud — the numbers on screen change and the ledger does
+  // not.
+  const handleBaseCurrencyChange = (code: string) => {
+    setBaseCurrency(code);
+    showToast(`Totals are now reported in ${code}.`, 'success');
+  };
+
   const context: LedgerContext = {
     transactions,
     categories,
@@ -169,6 +180,8 @@ function AppShell() {
     summary,
     ledgerCount: ledger.ledgerCount,
     highestExpense: ledger.highestExpense,
+    reportingCurrency: ledger.reportingCurrency,
+    unconvertedCount: ledger.unconvertedCount,
     deltas,
     monthlySeries,
     averageMonthly,
@@ -203,6 +216,8 @@ function AppShell() {
     isClearing: ledger.isMutating,
     userName: displayName,
     onUserNameChange: handleUserNameChange,
+    baseCurrency,
+    onBaseCurrencyChange: handleBaseCurrencyChange,
     showToast,
   };
 
@@ -302,6 +317,8 @@ export default function App() {
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/budgets" element={<BudgetsPage />} />
+          <Route path="/recurring" element={<RecurringPage />} />
+          <Route path="/goals" element={<GoalsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/overview" replace />} />
         </Route>

@@ -60,6 +60,13 @@ export interface LedgerContext {
   ledgerCount: number;
   /** The largest single expense across every row, from the server. */
   highestExpense: number;
+  /** The currency the aggregates above are expressed in (F-05). */
+  reportingCurrency?: string;
+  /**
+   * Transactions with no exchange rate, and so absent from the totals. Zero
+   * unless the ledger holds a currency the rate provider does not quote.
+   */
+  unconvertedCount: number;
   deltas: PeriodDeltas;
   monthlySeries: MonthlyPoint[];
   averageMonthly: { income: number; expense: number };
@@ -103,6 +110,16 @@ export interface LedgerContext {
 
   userName: string;
   onUserNameChange: (name: string) => void;
+  /**
+   * The currency reporting totals are expressed in (F-05).
+   *
+   * <p>A profile setting rather than a local one: accounts keep their own
+   * currencies, and this is the one they are all compared in. Holding it
+   * per-browser would let the same ledger report different totals on a laptop
+   * and a phone.
+   */
+  baseCurrency: string;
+  onBaseCurrencyChange: (code: string) => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 

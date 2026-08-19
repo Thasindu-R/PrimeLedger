@@ -46,4 +46,8 @@ export const queryKeys = {
   analytics: ['analytics'] as const,
   budgets: ['budgets'] as const,
   notifications: ['notifications'] as const,
+  recurring: ['recurring'] as const,
+  goals: ['goals'] as const,
+  currencies: ['currencies'] as const,
+  profile: ['profile'] as const,
 };

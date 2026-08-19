@@ -26,10 +26,14 @@ function renderSettings(
 ) {
   const onClearAll = vi.fn();
   const onUserNameChange = vi.fn();
+  const onBaseCurrencyChange = vi.fn();
   render(
     <SettingsContent
       userName="Ada"
       onUserNameChange={onUserNameChange}
+      baseCurrency="USD"
+      currencies={[{ code: 'USD', name: 'US Dollar' }]}
+      onBaseCurrencyChange={onBaseCurrencyChange}
       onClearAll={onClearAll}
       transactionCount={1}
       isClearing={false}
@@ -37,7 +41,7 @@ function renderSettings(
       {...props}
     />,
   );
-  return { onClearAll, onUserNameChange };
+  return { onClearAll, onUserNameChange, onBaseCurrencyChange };
 }
 
 describe('SettingsContent export (D-03)', () => {

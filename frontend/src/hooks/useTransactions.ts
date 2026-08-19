@@ -348,6 +348,13 @@ export function useTransactions({
   const ledgerCount = analytics.data?.count ?? 0;
   const highestExpense = analytics.data?.highestExpense ?? 0;
 
+  // What the aggregates are denominated in, and how much of the ledger could
+  // not be converted into it (F-05). The second is the one that matters: an
+  // unconvertible transaction is absent from the sums, so a total that looks
+  // perfectly ordinary can be understated, and only this number says so.
+  const reportingCurrency = analytics.data?.currency;
+  const unconvertedCount = analytics.data?.unconverted ?? 0;
+
   const monthlySeries = useMemo(
     () => buildSeriesFromBuckets(analytics.data?.monthly ?? [], { months: 12 }),
     [analytics.data],
@@ -472,6 +479,8 @@ export function useTransactions({
     summary,
     ledgerCount,
     highestExpense,
+    reportingCurrency,
+    unconvertedCount,
     deltas,
     monthlySeries,
     averageMonthly,
