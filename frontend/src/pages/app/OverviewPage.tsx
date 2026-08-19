@@ -5,10 +5,12 @@ import { StatisticsChart } from '../../components/StatisticsChart';
 import { AllExpensesPanel } from '../../components/AllExpensesPanel';
 import { AllIncomePanel } from '../../components/AllIncomePanel';
 import { PromoBanner } from '../../components/PromoBanner';
+import { InsightsPanel } from '../../components/InsightsPanel';
 import { TransactionList } from '../../components/TransactionList';
 import { SkeletonCards, SkeletonChart, SkeletonList } from '../../components/ui/Skeleton';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { useInsights } from '../../hooks/useInsights';
 import { useLedger } from '../ledgerContext';
 
 export function OverviewPage() {
@@ -34,6 +36,10 @@ export function OverviewPage() {
     totalElements,
   } = useLedger();
 
+  // Its own query, so a rules engine that fails takes only the panel with it and
+  // not the balance, the charts and the breakdowns.
+  const { insights, isLoading: insightsLoading } = useInsights();
+
   // The totals and the list load independently, so a failure in one leaves the
   // other on screen rather than blanking the dashboard (FR-42).
   if (analyticsError) {
@@ -57,6 +63,10 @@ export function OverviewPage() {
 
   return (
     <>
+      <div className="mb-4">
+        <InsightsPanel insights={insights} isLoading={insightsLoading} />
+      </div>
+
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-start">
         {/* Left Column */}

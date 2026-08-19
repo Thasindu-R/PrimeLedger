@@ -228,6 +228,7 @@ obsolete.
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/analytics/summary` | Totals, category breakdown and monthly series |
+| GET | `/analytics/insights` | Rule-based observations about this month (F-07) |
 
 Takes the **same filter as `GET /transactions`** and applies it identically, so
 the summary always describes exactly the rows that endpoint would return.
@@ -282,6 +283,52 @@ entirely ordinary while being understated. Anything other than zero means the
 figures are incomplete and the client must say so. The web client renders a
 banner above the dashboard; a client that ignores this field will silently
 present short totals as complete ones.
+
+#### `GET /analytics/insights`
+
+Plain-language observations, warnings first. Takes **no filter**: an insight is a
+statement about the user's month, and one computed over whatever slice the
+transactions page happens to be showing would be a statement about nothing in
+particular.
+
+```json
+[
+  { "kind": "MONTH_END_PROJECTION", "tone": "WARNING",
+    "title": "Heading over budget this month",
+    "detail": "At your current rate you will spend about USD 99 by the end of the month, USD 49 over your limits.",
+    "amount": "98.89", "percent": 97.8 },
+  { "kind": "CATEGORY_SHIFT", "tone": "NEUTRAL",
+    "title": "New spending on Groceries",
+    "detail": "You have spent USD 61 on Groceries this month, with nothing on it by this point last month.",
+    "subjectId": "…", "subjectName": "Groceries", "amount": "60.61" }
+]
+```
+
+**An empty array is a normal answer.** A quiet month has nothing worth saying
+about it, and a panel that always found something would train the user to stop
+reading it. The web client renders nothing at all rather than a placeholder.
+
+`kind` and `tone` are enums because the client styles and links on them; matching
+on the prose would break the first time a rule's wording improved. `tone` is also
+the sort order — someone scanning four observations should meet the one costing
+them money first. The structured fields (`subjectId`, `amount`, `percent`) carry
+the numbers the sentence turns on, so the client never has to parse `detail`.
+
+Four rules, all deliberately rule-based rather than learned: at this scale a
+model would be less explainable, less testable and no more useful.
+
+| `kind` | Says | Measured against |
+|---|---|---|
+| `CATEGORY_SHIFT` | A category moved sharply | The **same span** of last month — on the 9th, nine days against nine days |
+| `UNUSUAL_TRANSACTION` | One expense is far above normal | The mean single expense in that category over the trailing three months |
+| `MONTH_END_PROJECTION` | Where this month is heading | Straight-line extrapolation, compared to the monthly budget limits |
+| `SAVINGS_RATE_TREND` | Savings rate is moving | Complete months only; the current one is excluded |
+
+Two window choices are load-bearing and easy to get wrong. Comparing a partial
+month to a whole one would report every category as collapsing until the 28th,
+so the comparison window is the same number of days into each month. And a month
+with no income has **no** savings rate rather than a rate of zero, so it is
+skipped — counting it as zero would invent a collapse the user did not have.
 
 ### Recurring rules
 

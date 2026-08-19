@@ -144,6 +144,50 @@ public class AnalyticsRepository {
     }
 
     /**
+     * The biggest single expenses in a window, converted, largest first (F-07).
+     *
+     * <p>Rows rather than an aggregate, because the outlier rule is about one
+     * transaction and needs to be able to name it — the description in the
+     * sentence and the id behind the link. Bounded by {@code limit} so a wide
+     * filter cannot pull the ledger into memory.
+     *
+     * <p>Ordered by the <em>converted</em> amount. Ordering by the raw one would
+     * make "your largest expense" mean whichever account had the weakest
+     * currency, which is not a fact about spending at all.
+     */
+    public List<LargestExpense> largestExpenses(
+            UUID userId, TransactionFilter filter, String baseCurrency, int limit) {
+        CriteriaBuilder cb = em.getCriteriaBuilder();
+        CriteriaQuery<Tuple> query = cb.createTupleQuery();
+        Root<Transaction> root = query.from(Transaction.class);
+
+        Expression<BigDecimal> amount = converted(root, cb, baseCurrency);
+
+        query.multiselect(
+                        List.of(
+                                root.get("id"),
+                                root.get("category").get("id"),
+                                root.get("category").get("name"),
+                                amount,
+                                root.get("occurredOn"),
+                                root.get("description")))
+                .where(scope(userId, filter, root, query, cb))
+                .orderBy(cb.desc(amount));
+
+        return em.createQuery(query).setMaxResults(limit).getResultList().stream()
+                .map(
+                        row ->
+                                new LargestExpense(
+                                        row.get(0, UUID.class),
+                                        row.get(1, UUID.class),
+                                        row.get(2, String.class),
+                                        row.get(3, BigDecimal.class),
+                                        row.get(4, java.time.LocalDate.class),
+                                        row.get(5, String.class)))
+                .toList();
+    }
+
+    /**
      * The row's amount, expressed in {@code baseCurrency} at the rate that
      * applied on the day it happened (F-05).
      *
@@ -208,4 +252,17 @@ public class AnalyticsRepository {
             long count) {}
 
     public record MonthlyTotal(String month, TransactionType type, BigDecimal total) {}
+
+    /**
+     * One transaction, converted. {@code amount} is null when the row's currency
+     * had no rate — such a row cannot be compared to anything and the caller
+     * drops it.
+     */
+    public record LargestExpense(
+            UUID id,
+            UUID categoryId,
+            String categoryName,
+            BigDecimal amount,
+            java.time.LocalDate occurredOn,
+            String description) {}
 }

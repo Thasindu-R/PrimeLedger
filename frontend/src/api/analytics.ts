@@ -1,7 +1,7 @@
 import { apiJson } from './client';
-import { summarySchema } from '../schemas/api';
+import { insightSchema, summarySchema } from '../schemas/api';
 import { fromWireType } from './transactions';
-import type { Summary, TransactionType } from '../types';
+import type { Insight, Summary, TransactionType } from '../types';
 
 /** One bucket of the monthly series, as the server computed it. */
 export interface MonthlyBucket {
@@ -95,4 +95,34 @@ export async function fetchSummary(scope: AnalyticsScope = {}): Promise<Analytic
     currency: parsed.totals.currency ?? undefined,
     unconverted: parsed.totals.unconverted,
   };
+}
+
+/**
+ * Rule-based observations about this month (F-07, FR-30).
+ *
+ * <p>Takes no filter, deliberately. An insight is a statement about the user's
+ * month; one computed over whatever slice the transactions page happens to be
+ * showing would be a statement about nothing in particular.
+ *
+ * <p>An empty list is a normal answer. A quiet month has nothing worth saying
+ * about it, and a panel that always found something would train the user to
+ * stop reading it.
+ */
+export async function fetchInsights(): Promise<Insight[]> {
+  const body = await apiJson<unknown>('/analytics/insights');
+  return insightSchema
+    .array()
+    .parse(body)
+    .map((wire) => ({
+      kind: wire.kind,
+      tone: wire.tone,
+      title: wire.title,
+      detail: wire.detail,
+      subjectId: wire.subjectId ?? undefined,
+      subjectName: wire.subjectName ?? undefined,
+      amount:
+        wire.amount === null || wire.amount === undefined ? undefined : Number(wire.amount),
+      percent:
+        wire.percent === null || wire.percent === undefined ? undefined : wire.percent,
+    }));
 }

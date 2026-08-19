@@ -44,6 +44,7 @@ export const queryKeys = {
   /** The one the ledger files writes under, kept apart from the list of all of them. */
   defaultAccount: ['accounts', 'default'] as const,
   analytics: ['analytics'] as const,
+  insights: ['analytics', 'insights'] as const,
   budgets: ['budgets'] as const,
   notifications: ['notifications'] as const,
   recurring: ['recurring'] as const,

@@ -217,6 +217,35 @@ export const profileSchema = z.object({
 });
 export type WireProfile = z.infer<typeof profileSchema>;
 
+export const insightKindSchema = z.enum([
+  'CATEGORY_SHIFT',
+  'UNUSUAL_TRANSACTION',
+  'MONTH_END_PROJECTION',
+  'SAVINGS_RATE_TREND',
+]);
+
+export const insightToneSchema = z.enum(['WARNING', 'NEUTRAL', 'GOOD']);
+
+/**
+ * A rule-based observation (F-07).
+ *
+ * <p>The sentence arrives written, but the numbers behind it come too: the
+ * client renders `detail` and uses the structured fields to link to the thing
+ * being talked about. Parsing the prose to find them would break the first time
+ * a rule's wording improved.
+ */
+export const insightSchema = z.object({
+  kind: insightKindSchema,
+  tone: insightToneSchema,
+  title: z.string(),
+  detail: z.string(),
+  subjectId: z.string().nullish(),
+  subjectName: z.string().nullish(),
+  amount: z.string().nullish(),
+  percent: z.number().nullish(),
+});
+export type WireInsight = z.infer<typeof insightSchema>;
+
 export const summarySchema = z.object({
   totals: z.object({
     income: z.string(),

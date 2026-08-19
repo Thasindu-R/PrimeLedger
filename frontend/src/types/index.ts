@@ -251,6 +251,32 @@ export interface Profile {
   dateFormat: string;
 }
 
+export type InsightKind =
+  | 'CATEGORY_SHIFT'
+  | 'UNUSUAL_TRANSACTION'
+  | 'MONTH_END_PROJECTION'
+  | 'SAVINGS_RATE_TREND';
+
+/**
+ * How an observation should read. Also its sort order — someone scanning four
+ * of these should meet the one costing them money first.
+ */
+export type InsightTone = 'WARNING' | 'NEUTRAL' | 'GOOD';
+
+/** A plain-language observation about the ledger (F-07). */
+export interface Insight {
+  kind: InsightKind;
+  tone: InsightTone;
+  title: string;
+  detail: string;
+  /** The category or transaction being talked about, where there is one. */
+  subjectId?: string;
+  subjectName?: string;
+  /** The figure the sentence turns on, in the base currency. */
+  amount?: number;
+  percent?: number;
+}
+
 export interface Notification {
   id: string;
   kind: string;
