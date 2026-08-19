@@ -75,7 +75,8 @@ and present on the matching log line.
 
 Documented as they land. Phase 2 delivered transactions and categories; Phase 4
 added the analytics summary and the read half of accounts; Phase 5 added the
-rest of accounts, transfers, budgets and notifications.
+rest of accounts, transfers, budgets and notifications; Phase 6 added recurring
+rules, savings goals, currencies and the profile.
 
 **A transaction has no category when it is a transfer leg.** `categoryId` and
 `categoryName` are nullable from V5, and a client that declares them required
@@ -224,7 +225,8 @@ filters deliberately do not redraw the dashboard.
 ```json
 {
   "totals":  { "income": "4200.00", "expense": "1875.50", "balance": "2324.50",
-               "count": 384, "highestExpense": "899.00" },
+               "count": 384, "highestExpense": "899.00",
+               "currency": "USD", "unconverted": 0 },
   "byCategory": [
     { "categoryId": "…", "categoryName": "Groceries", "type": "EXPENSE",
       "total": "312.75", "count": 9 }
@@ -248,6 +250,123 @@ This endpoint exists because the browser stopped being able to compute these.
 Before Phase 4 the whole ledger was in memory and the dashboard reduced it
 directly; once the list is paginated the client holds one page, and summing that
 would report the current page's totals as the ledger's.
+
+**Currency, from Phase 6.** Every amount above is expressed in `currency` — the
+profile's `baseCurrency` — and each transaction is converted at the rate
+published on **its own date**, not today's. That is what stops last year's
+totals moving every time this year's rate does. A single-currency ledger is
+unaffected: the conversion is an identity when the two currencies match and
+consults no rate at all.
+
+`unconverted` is the one field worth handling rather than displaying. It counts
+rows whose currency had no published rate on or before their date, and those
+rows are **missing from the sums** — `SUM` skips nulls, so the totals look
+entirely ordinary while being understated. Anything other than zero means the
+figures are incomplete and the client must say so. The web client renders a
+banner above the dashboard; a client that ignores this field will silently
+present short totals as complete ones.
+
+### Recurring rules
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/recurring` | Soonest occurrence first; paused and finished rules included and flagged |
+| GET | `/recurring/{id}` | |
+| POST | `/recurring` | 201; 409 if the name is taken |
+| PUT | `/recurring/{id}` | Update or pause — `paused` is a field, not an endpoint |
+| DELETE | `/recurring/{id}` | 204. Generated transactions are **retained** and severed from the rule |
+| POST | `/recurring/run` | Materialise the caller's due rules now; `{"created": n}` |
+
+A rule is a template plus a schedule, and what it generates is an ordinary
+transaction — editable, deletable, and severable from the rule. A one-off rent
+increase is an edit to one row, not a change to the rule.
+
+`currency` is not accepted on write: a rule takes the currency of the account it
+pays into. `startsOn` may be up to two years in the past, which is how a
+standing order that began months ago is recorded; the next run materialises
+every occurrence since.
+
+Occurrences are anchored on `startsOn` rather than stepped forward from the
+previous one. A monthly rule beginning on the 31st fires on the 31st, the 28th
+in February, and the 31st again in March. Stepping would clamp to the 28th and
+stay there for ever.
+
+`POST /recurring/run` is the nightly job's work, on demand and for one caller.
+It exists so the scheduled behaviour can be seen working rather than taken on
+trust, and it is safe to call repeatedly — the same idempotent path, so a second
+call creates nothing.
+
+### Goals
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/goals` | With progress and projection; dated goals first, undated after |
+| GET | `/goals/{id}` | |
+| POST | `/goals` | 201; 409 if the name is taken; 400 if `targetDate` is in the past |
+| PUT | `/goals/{id}` | |
+| DELETE | `/goals/{id}` | 204. The account and its transactions are untouched |
+
+```json
+{
+  "id": "…", "name": "Emergency fund", "accountId": "…", "currency": "LKR",
+  "targetAmount": "500000.00", "targetDate": "2027-12-31",
+  "currentAmount": "182400.00", "remaining": "317600.00",
+  "progressPercent": 36.5, "achieved": false,
+  "requiredMonthly": "19850.00", "monthlyRate": "14200.00",
+  "projectedCompletion": "2028-04-19", "onTrack": false,
+  "contributionFrom": "2026-05-19", "contributionTo": "2026-08-19"
+}
+```
+
+A goal owns no money — it is a way of reading an account, which is why
+`currentAmount` is that account's balance and why deleting a goal touches
+nothing else. Saving towards one is an ordinary transfer.
+
+The two rates are different questions and both are needed. `requiredMonthly` is
+arithmetic on the deadline; `monthlyRate` is what the user has actually put
+aside over the trailing three months, and `projectedCompletion` is built on the
+second. Three fields are three-valued rather than defaulted:
+
+| Field | Null when |
+|---|---|
+| `requiredMonthly` | The goal is met, or has no `targetDate` to require anything by |
+| `projectedCompletion` | The goal is met, or the observed rate never gets there |
+| `onTrack` | There is no `targetDate`, so nothing to be on track for |
+
+`onTrack: false` is a real answer and must not be collapsed into "unknown".
+
+### Currencies
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/currencies` | Supported currencies and the day's rates, quoted against the caller's base |
+
+`rate` is how many units of that currency one unit of `baseCurrency` buys, and
+`asOf` is the date it was published — shown beside any converted figure, because
+"converted" and "converted at last Tuesday's rate" are different claims and only
+the second is honest.
+
+A currency with a null `rate` is still selectable. The provider (Frankfurter,
+republishing the ECB's reference rates) quotes about thirty currencies; holding
+an account in one it does not quote works normally, since amounts are stored
+exactly as spent, but such rows cannot be folded into a converted total and are
+counted in the analytics summary's `unconverted`.
+
+### Profile
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/profile` | Created with defaults on first call, so it never 404s |
+| PUT | `/profile` | Full replacement, not a patch — send every field |
+
+`baseCurrency` is the currency all reporting totals are expressed in. Changing
+it re-expresses them at the rates that applied on each transaction's own date;
+it converts what is displayed and never what is stored.
+
+The profile is provisioned lazily rather than by a sign-up hook: Supabase owns
+registration, so there is no server-side moment this application hears about a
+new user. The alternative would be a trigger on `auth.users`, which is a schema
+Supabase manages and upgrades.
 
 ### Categories
 

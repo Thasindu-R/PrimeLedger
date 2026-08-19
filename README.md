@@ -4,11 +4,16 @@ A personal finance management application: a **React** and **TypeScript** fronte
 over a **Spring Boot** API backed by PostgreSQL. Log income and expenses, track
 your balance, and visualise spending patterns.
 
-> **This README still describes the original frontend-only app.** Phases 2 and 3
-> added the API, Supabase authentication and row-level security, and the sections
-> below have not caught up — treat [backend/README.md](backend/README.md) and
-> [docs/api.md](docs/api.md) as authoritative for anything server-side. Only the
-> setup and Docker instructions have been brought up to date.
+> **This README still describes the original frontend-only app.** Phases 2–6
+> added the API, Supabase authentication and row-level security, multiple
+> accounts and transfers, category budgets, recurring transactions, savings
+> goals and multi-currency reporting. The Features section below has not caught
+> up and is wrong in specifics — data is in PostgreSQL rather than
+> `localStorage`, and categories are rows rather than a compile-time union.
+> Treat [backend/README.md](backend/README.md) and [docs/api.md](docs/api.md) as
+> authoritative for anything server-side. The whole document is rewritten in
+> Phase 9; only the structure, setup and Docker sections are kept current until
+> then.
 
 ---
 
@@ -66,10 +71,11 @@ primeledger/
 │   │   ├── config/           env.ts — typed import.meta.env
 │   │   ├── context/          AuthProvider · ThemeProvider           [Phase 3]
 │   │   ├── hooks/            useTransactions · useProfile · useToast
+│   │   │                     useRecurring · useGoals · useCurrencies
 │   │   ├── lib/              queryClient · formatters               [Phase 4]
 │   │   ├── pages/
 │   │   │   ├── app/          Overview · Analytics · Transactions · Settings
-│   │   │   │                 Budgets · Goals · Accounts        [Phases 5–6]
+│   │   │   │                 Accounts · Budgets · Recurring · Goals
 │   │   │   ├── auth/         SignUp · SignIn · ForgotPassword
 │   │   │   │                 ResetPassword · VerifyEmail           [Phase 3]
 │   │   │   └── ledgerContext.ts   typed Outlet context for the app pages
@@ -82,12 +88,12 @@ primeledger/
 │   ├── Dockerfile            multi-stage build, Nginx serves the output
 │   └── .env.example
 ├── backend/                  Spring Boot 4.1 · Java 21              [Phase 2]
-│   ├── src/main/java/com/primeledger/    twelve feature packages
-│   ├── src/main/resources/db/migration/  Flyway V1–V4
+│   ├── src/main/java/com/primeledger/    thirteen feature packages
+│   ├── src/main/resources/db/migration/  Flyway V1–V7
 │   ├── src/test/java/                    JUnit 5 unit tests
 │   ├── src/integrationTest/java/         Testcontainers suite
 │   ├── .env.example
-│   └── README.md             package layout and Phase 2 starting point
+│   └── README.md             package layout, RLS notes and local setup
 ├── docs/
 │   ├── architecture.md
 │   ├── api.md

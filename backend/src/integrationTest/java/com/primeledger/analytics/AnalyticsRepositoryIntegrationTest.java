@@ -34,6 +34,18 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 class AnalyticsRepositoryIntegrationTest extends AbstractIntegrationTest {
 
+    /**
+     * The reporting currency for these tests, and the same one every fixture
+     * transaction is in.
+     *
+     * <p>Deliberately matched, so {@code fx_convert} takes its identity branch
+     * and returns each amount untouched without consulting a rate. The subject
+     * here is grouping and filtering; conversion has its own suite in {@code
+     * FxConversionIntegrationTest}, and coupling these tests to a rate table
+     * would make a grouping failure and a missing exchange rate look identical.
+     */
+    private static final String BASE = "USD";
+
     @Autowired private AnalyticsRepository analytics;
     @Autowired private TransactionRepository transactions;
     @Autowired private AccountRepository accounts;
@@ -62,7 +74,7 @@ class AnalyticsRepositoryIntegrationTest extends AbstractIntegrationTest {
         save(expense("2.50", LocalDate.of(2026, 8, 2)));
         save(income("1000.00", LocalDate.of(2026, 8, 3)));
 
-        var totals = analytics.totalsByType(alice, unfiltered());
+        var totals = analytics.totalsByType(alice, unfiltered(), BASE);
 
         assertThat(totals)
                 .extracting(AnalyticsRepository.TypeTotal::type)
@@ -79,7 +91,7 @@ class AnalyticsRepositoryIntegrationTest extends AbstractIntegrationTest {
         save(expense("10.00", LocalDate.of(2026, 8, 2)));
         save(income("50.00", LocalDate.of(2026, 8, 3)));
 
-        var totals = analytics.totalsByType(alice, unfiltered());
+        var totals = analytics.totalsByType(alice, unfiltered(), BASE);
 
         var expenses =
                 totals.stream().filter(row -> row.type() == TransactionType.EXPENSE).findFirst();
@@ -99,7 +111,7 @@ class AnalyticsRepositoryIntegrationTest extends AbstractIntegrationTest {
         save(expense("0.10", LocalDate.of(2026, 8, 1)));
         save(expense("0.20", LocalDate.of(2026, 8, 2)));
 
-        var totals = analytics.totalsByType(alice, unfiltered());
+        var totals = analytics.totalsByType(alice, unfiltered(), BASE);
 
         // 0.1 + 0.2 is famously not 0.3 in binary floating point. NUMERIC(15,2)
         // all the way through is the whole reason amounts are BigDecimal (§7.3).
@@ -112,7 +124,7 @@ class AnalyticsRepositoryIntegrationTest extends AbstractIntegrationTest {
         save(expense("10.00", LocalDate.of(2025, 1, 15)));
         save(expense("25.00", LocalDate.of(2026, 1, 15)));
 
-        var monthly = analytics.totalsByMonth(alice, unfiltered());
+        var monthly = analytics.totalsByMonth(alice, unfiltered(), BASE);
 
         assertThat(monthly)
                 .extracting(AnalyticsRepository.MonthlyTotal::month)
@@ -127,7 +139,7 @@ class AnalyticsRepositoryIntegrationTest extends AbstractIntegrationTest {
         save(expense("40.00", LocalDate.of(2026, 8, 1)));
         save(income("100.00", LocalDate.of(2026, 8, 2)));
 
-        var monthly = analytics.totalsByMonth(alice, unfiltered());
+        var monthly = analytics.totalsByMonth(alice, unfiltered(), BASE);
 
         assertThat(monthly).hasSize(2);
         assertThat(monthly)
@@ -143,7 +155,7 @@ class AnalyticsRepositoryIntegrationTest extends AbstractIntegrationTest {
         save(expense("1.00", LocalDate.of(2025, 11, 1)));
         save(expense("1.00", LocalDate.of(2026, 1, 1)));
 
-        assertThat(analytics.totalsByMonth(alice, unfiltered()))
+        assertThat(analytics.totalsByMonth(alice, unfiltered(), BASE))
                 .extracting(AnalyticsRepository.MonthlyTotal::month)
                 .containsExactly("2025-11", "2026-01", "2026-03");
     }
@@ -158,7 +170,7 @@ class AnalyticsRepositoryIntegrationTest extends AbstractIntegrationTest {
         big.setCategory(rent);
         save(big);
 
-        var byCategory = analytics.totalsByCategory(alice, unfiltered());
+        var byCategory = analytics.totalsByCategory(alice, unfiltered(), BASE);
 
         assertThat(byCategory)
                 .extracting(AnalyticsRepository.CategoryTotal::categoryName)
@@ -175,7 +187,7 @@ class AnalyticsRepositoryIntegrationTest extends AbstractIntegrationTest {
         gone.setDeletedAt(Instant.now());
         save(gone);
 
-        assertThat(amountFor(analytics.totalsByType(alice, unfiltered()), TransactionType.EXPENSE))
+        assertThat(amountFor(analytics.totalsByType(alice, unfiltered(), BASE), TransactionType.EXPENSE))
                 .isEqualByComparingTo("10.00");
     }
 
@@ -189,7 +201,7 @@ class AnalyticsRepositoryIntegrationTest extends AbstractIntegrationTest {
                 new TransactionFilter(
                         LocalDate.of(2026, 1, 1), null, null, null, null, null, null, null, false);
 
-        assertThat(amountFor(analytics.totalsByType(alice, filter), TransactionType.EXPENSE))
+        assertThat(amountFor(analytics.totalsByType(alice, filter, BASE), TransactionType.EXPENSE))
                 .isEqualByComparingTo("20.00");
     }
 
@@ -198,15 +210,15 @@ class AnalyticsRepositoryIntegrationTest extends AbstractIntegrationTest {
     void isolatesUsers() {
         save(expense("10.00", LocalDate.of(2026, 8, 1)));
 
-        assertThat(analytics.totalsByType(bob, unfiltered())).isEmpty();
-        assertThat(analytics.totalsByCategory(bob, unfiltered())).isEmpty();
-        assertThat(analytics.totalsByMonth(bob, unfiltered())).isEmpty();
+        assertThat(analytics.totalsByType(bob, unfiltered(), BASE)).isEmpty();
+        assertThat(analytics.totalsByCategory(bob, unfiltered(), BASE)).isEmpty();
+        assertThat(analytics.totalsByMonth(bob, unfiltered(), BASE)).isEmpty();
     }
 
     @Test
     @DisplayName("an empty ledger produces no rows rather than a row of zeroes")
     void returnsNothingWhenEmpty() {
-        assertThat(analytics.totalsByType(alice, unfiltered())).isEmpty();
+        assertThat(analytics.totalsByType(alice, unfiltered(), BASE)).isEmpty();
     }
 
     // ---------------------------------------------------------------- helpers

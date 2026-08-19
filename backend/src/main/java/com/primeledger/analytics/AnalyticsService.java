@@ -2,6 +2,7 @@ package com.primeledger.analytics;
 
 import com.primeledger.analytics.dto.SummaryResponse;
 import com.primeledger.common.ApiException;
+import com.primeledger.profile.ProfileService;
 import com.primeledger.security.CurrentUserProvider;
 import com.primeledger.transaction.TransactionType;
 import com.primeledger.transaction.dto.TransactionFilter;
@@ -20,10 +21,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class AnalyticsService {
 
     private final AnalyticsRepository analytics;
+    private final ProfileService profiles;
     private final CurrentUserProvider currentUser;
 
-    public AnalyticsService(AnalyticsRepository analytics, CurrentUserProvider currentUser) {
+    public AnalyticsService(
+            AnalyticsRepository analytics,
+            ProfileService profiles,
+            CurrentUserProvider currentUser) {
         this.analytics = analytics;
+        this.profiles = profiles;
         this.currentUser = currentUser;
     }
 
@@ -37,18 +43,31 @@ public class AnalyticsService {
 
         UUID userId = currentUser.currentUserId();
 
+        // Every figure below is expressed in this, converted per row at the rate
+        // that applied on that row's own date (F-05). A user with one currency
+        // sees exactly the numbers they saw before Phase 6: fx_convert returns
+        // the amount unchanged when the two currencies match, without consulting
+        // a rate at all.
+        String baseCurrency = profiles.baseCurrencyOf(userId);
+
         return new SummaryResponse(
-                totals(userId, filter), byCategory(userId, filter), monthly(userId, filter));
+                totals(userId, filter, baseCurrency),
+                byCategory(userId, filter, baseCurrency),
+                monthly(userId, filter, baseCurrency));
     }
 
-    private SummaryResponse.Totals totals(UUID userId, TransactionFilter filter) {
+    private SummaryResponse.Totals totals(
+            UUID userId, TransactionFilter filter, String baseCurrency) {
         Map<TransactionType, AnalyticsRepository.TypeTotal> rows =
                 new EnumMap<>(TransactionType.class);
         long count = 0;
+        long unconverted = 0;
 
-        for (AnalyticsRepository.TypeTotal row : analytics.totalsByType(userId, filter)) {
+        for (AnalyticsRepository.TypeTotal row :
+                analytics.totalsByType(userId, filter, baseCurrency)) {
             rows.put(row.type(), row);
             count += row.count();
+            unconverted += row.unconvertible();
         }
 
         BigDecimal income = totalOf(rows.get(TransactionType.INCOME));
@@ -62,15 +81,18 @@ public class AnalyticsService {
                 money(expense),
                 money(income.subtract(expense)),
                 count,
-                money(highestExpense));
+                money(highestExpense),
+                baseCurrency,
+                unconverted);
     }
 
     private static BigDecimal totalOf(AnalyticsRepository.TypeTotal row) {
         return row == null ? BigDecimal.ZERO : orZero(row.total());
     }
 
-    private List<SummaryResponse.CategoryTotal> byCategory(UUID userId, TransactionFilter filter) {
-        return analytics.totalsByCategory(userId, filter).stream()
+    private List<SummaryResponse.CategoryTotal> byCategory(
+            UUID userId, TransactionFilter filter, String baseCurrency) {
+        return analytics.totalsByCategory(userId, filter, baseCurrency).stream()
                 .map(
                         row ->
                                 new SummaryResponse.CategoryTotal(
@@ -87,10 +109,12 @@ public class AnalyticsService {
      * point the chart draws. Insertion-ordered, and the query returns months
      * ascending, so the series comes out oldest first without a second sort.
      */
-    private List<SummaryResponse.MonthlyTotal> monthly(UUID userId, TransactionFilter filter) {
+    private List<SummaryResponse.MonthlyTotal> monthly(
+            UUID userId, TransactionFilter filter, String baseCurrency) {
         Map<String, BigDecimal[]> byMonth = new LinkedHashMap<>();
 
-        for (AnalyticsRepository.MonthlyTotal row : analytics.totalsByMonth(userId, filter)) {
+        for (AnalyticsRepository.MonthlyTotal row :
+                analytics.totalsByMonth(userId, filter, baseCurrency)) {
             BigDecimal[] slot =
                     byMonth.computeIfAbsent(
                             row.month(), key -> new BigDecimal[] {BigDecimal.ZERO, BigDecimal.ZERO});

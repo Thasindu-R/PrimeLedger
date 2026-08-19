@@ -29,6 +29,11 @@ import org.springframework.test.context.DynamicPropertySource;
             // The privileged role legitimately bypasses RLS here, so the start-up
             // guard would fail every one of these tests for the wrong reason.
             "primeledger.security.require-rls=false",
+            // The exchange-rate job fetches on start-up into an empty table.
+            // Left on, every one of these tests would depend on a third-party
+            // HTTP service being reachable — which is not a property a test
+            // suite may have. Tests that need rates insert the ones they need.
+            "primeledger.fx.job.enabled=false",
         })
 @ExtendWith(DockerRequired.class)
 public abstract class AbstractIntegrationTest {

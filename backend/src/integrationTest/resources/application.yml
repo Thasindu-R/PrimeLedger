@@ -18,6 +18,19 @@ primeledger:
   dev:
     user-id: 00000000-0000-4000-8000-000000000001
   seed-demo-data: false
+  fx:
+    # Deliberately not a real host. The scheduled fetch is switched off in
+    # AbstractIntegrationTest, and a suite that reached a third-party service
+    # would be one that goes red when somebody else's server does — so if
+    # anything here ever does make a call, it should fail immediately and
+    # obviously rather than quietly succeed on a machine with a network.
+    #
+    # Tests that need rates insert the exact ones they are reasoning about;
+    # see FxConversionIntegrationTest.
+    api-url: http://fx.invalid
+    base: EUR
+    job:
+      enabled: false
 
 logging:
   level:

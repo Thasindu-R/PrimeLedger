@@ -3,7 +3,6 @@ package com.primeledger.transaction;
 import com.primeledger.account.AccountRepository;
 import com.primeledger.budget.BudgetEvaluator;
 import com.primeledger.category.Category;
-import com.primeledger.category.CategoryKind;
 import com.primeledger.category.CategoryService;
 import com.primeledger.common.ApiException;
 import com.primeledger.common.PageResponse;
@@ -182,7 +181,7 @@ public class TransactionService {
         }
 
         Category category = categories.requireUsable(request.categoryId(), userId);
-        requireMatchingKind(request, category);
+        CategoryKindRule.requireMatches(category, request.type(), "transaction");
         requireSaneDate(request.occurredOn());
 
         transaction.setAccountId(request.accountId());
@@ -195,39 +194,6 @@ public class TransactionService {
                 request.description() == null || request.description().isBlank()
                         ? null
                         : request.description().trim());
-    }
-
-    /**
-     * An expense filed under an income category is the drift D-01 was about,
-     * one level up. The database cannot express this rule, so the service does.
-     */
-    private static void requireMatchingKind(TransactionRequest request, Category category) {
-        CategoryKind expected =
-                request.type() == TransactionType.INCOME
-                        ? CategoryKind.INCOME
-                        : CategoryKind.EXPENSE;
-        if (category.getKind() != expected) {
-            String categoryKind = category.getKind().name().toLowerCase();
-            String transactionKind = request.type().name().toLowerCase();
-
-            throw ApiException.businessRule(
-                    "Category '%s' is %s %s category and cannot be used for %s %s transaction"
-                            .formatted(
-                                    category.getName(),
-                                    article(categoryKind),
-                                    categoryKind,
-                                    article(transactionKind),
-                                    transactionKind));
-        }
-    }
-
-    /**
-     * "a expense" reads as a bug in the product to anyone who sees it, and this
-     * message is user-facing. Only ever applied to the two kind names, so a vowel
-     * check is the whole rule rather than an approximation of one.
-     */
-    private static String article(String word) {
-        return "aeiou".indexOf(word.charAt(0)) >= 0 ? "an" : "a";
     }
 
     /**

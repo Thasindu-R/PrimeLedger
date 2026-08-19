@@ -57,9 +57,17 @@ disagree about who the user is. (They did once, and the result was an API that
 silently saw an empty database.)
 
 Background work has no request to take an identity from, so it names one
-explicitly with `RunAs` — the development seeder today, the recurring-transaction
-materialiser in Phase 6. It is not a way to escape RLS: a caller names one user
-and gets exactly that user's view.
+explicitly with `RunAs` — the development seeder, the nightly budget sweep, and
+the recurring-transaction materialiser. It is not a way to escape RLS: a caller
+names one user and gets exactly that user's view.
+
+Which leaves the prior question — *which* users have work waiting — that a job
+with no identity cannot answer at all, because every table it would ask shows it
+nothing. The answer is one `SECURITY DEFINER` function per job, each returning
+user ids and nothing else: `app_users_with_budgets()` (V6) and
+`app_users_with_due_rules(date)` (V7). Both pin `search_path` and are granted to
+the runtime role alone. Granting `BYPASSRLS` instead would answer the same
+question and undo every policy in V2, which is what `RlsGuard` exists to catch.
 
 ### Running locally without Supabase
 
@@ -86,11 +94,12 @@ src/main/java/com/primeledger/
 ├── account/         F-01 accounts and transfers
 ├── category/        system-seeded and user-defined
 ├── budget/          F-02 limits and threshold evaluation
-├── goal/            F-04 savings goals
+├── goal/            F-04 savings goals and their projection
 ├── recurring/       rule entity + @Scheduled materialiser (F-03)
+├── currency/        F-05 fx_rates, the daily fetch, and conversion
 ├── analytics/       summary · timeseries · breakdown · insights
 ├── importexport/    CSV / XLSX parse and generate (F-06)
-├── profile/         display name · currency · locale · theme
+├── profile/         display name · base currency · locale · theme
 └── common/          GlobalExceptionHandler · ApiError · PageResponse · Auditable
 ```
 

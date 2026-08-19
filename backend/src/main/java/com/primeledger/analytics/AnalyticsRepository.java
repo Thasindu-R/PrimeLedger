@@ -42,18 +42,30 @@ public class AnalyticsRepository {
      * because the dashboard shows all three and none of them can be derived from
      * a page of results — the count would be the page size and the maximum would
      * be the largest row that happened to be on screen.
+     *
+     * <p>Also carries how many rows could not be converted, which the sum cannot
+     * express: {@code SUM} skips nulls, so an unconvertible transaction leaves
+     * the total looking like a smaller but entirely plausible number. Counting
+     * them is what lets the caller say so rather than quietly under-report.
      */
-    public List<TypeTotal> totalsByType(UUID userId, TransactionFilter filter) {
+    public List<TypeTotal> totalsByType(
+            UUID userId, TransactionFilter filter, String baseCurrency) {
         CriteriaBuilder cb = em.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<Transaction> root = query.from(Transaction.class);
 
         Expression<TransactionType> type = root.get("type");
-        Expression<BigDecimal> amount = root.get("amount");
+        Expression<BigDecimal> amount = converted(root, cb, baseCurrency);
 
         // The List overload, not the varargs one: Jakarta Persistence 3.2
         // deprecated the latter.
-        query.multiselect(List.of(type, cb.sum(amount), cb.count(root), cb.max(amount)))
+        query.multiselect(
+                        List.of(
+                                type,
+                                cb.sum(amount),
+                                cb.count(root),
+                                cb.max(amount),
+                                unconvertible(amount, cb)))
                 .where(scope(userId, filter, root, query, cb))
                 .groupBy(type);
 
@@ -64,12 +76,14 @@ public class AnalyticsRepository {
                                         row.get(0, TransactionType.class),
                                         row.get(1, BigDecimal.class),
                                         row.get(2, Long.class),
-                                        row.get(3, BigDecimal.class)))
+                                        row.get(3, BigDecimal.class),
+                                        row.get(4, Long.class)))
                 .toList();
     }
 
     /** One row per (category, type) with activity, largest total first. */
-    public List<CategoryTotal> totalsByCategory(UUID userId, TransactionFilter filter) {
+    public List<CategoryTotal> totalsByCategory(
+            UUID userId, TransactionFilter filter, String baseCurrency) {
         CriteriaBuilder cb = em.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<Transaction> root = query.from(Transaction.class);
@@ -77,7 +91,7 @@ public class AnalyticsRepository {
         Expression<UUID> categoryId = root.get("category").get("id");
         Expression<String> categoryName = root.get("category").get("name");
         Expression<TransactionType> type = root.get("type");
-        Expression<BigDecimal> total = cb.sum(root.<BigDecimal>get("amount"));
+        Expression<BigDecimal> total = cb.sum(converted(root, cb, baseCurrency));
 
         query.multiselect(List.of(categoryId, categoryName, type, total, cb.count(root)))
                 .where(scope(userId, filter, root, query, cb))
@@ -104,7 +118,8 @@ public class AnalyticsRepository {
      * the month alone is the defect D-02 closed in the browser, and it would be
      * no less wrong here.
      */
-    public List<MonthlyTotal> totalsByMonth(UUID userId, TransactionFilter filter) {
+    public List<MonthlyTotal> totalsByMonth(
+            UUID userId, TransactionFilter filter, String baseCurrency) {
         CriteriaBuilder cb = em.getCriteriaBuilder();
         CriteriaQuery<Tuple> query = cb.createTupleQuery();
         Root<Transaction> root = query.from(Transaction.class);
@@ -113,7 +128,7 @@ public class AnalyticsRepository {
                 cb.function("to_char", String.class, root.get("occurredOn"), cb.literal("YYYY-MM"));
         Expression<TransactionType> type = root.get("type");
 
-        query.multiselect(List.of(month, type, cb.sum(root.<BigDecimal>get("amount"))))
+        query.multiselect(List.of(month, type, cb.sum(converted(root, cb, baseCurrency))))
                 .where(scope(userId, filter, root, query, cb))
                 .groupBy(month, type)
                 .orderBy(cb.asc(month));
@@ -128,6 +143,41 @@ public class AnalyticsRepository {
                 .toList();
     }
 
+    /**
+     * The row's amount, expressed in {@code baseCurrency} at the rate that
+     * applied on the day it happened (F-05).
+     *
+     * <p>Inside the aggregate rather than after it, and that is not a
+     * micro-optimisation. Once rows are grouped by month or by category their
+     * individual dates are gone, so converting the group means picking one date
+     * for a set of transactions that do not share one — which is exactly the
+     * silent drift F-05 exists to prevent. The database is the only place the
+     * amount and its own date are still together.
+     *
+     * <p>Null when no rate has ever been published for the row's currency on or
+     * before its date; see {@link #unconvertible}.
+     */
+    private static Expression<BigDecimal> converted(
+            Root<Transaction> root, CriteriaBuilder cb, String baseCurrency) {
+        return cb.function(
+                "fx_convert",
+                BigDecimal.class,
+                root.get("amount"),
+                root.get("currency"),
+                cb.literal(baseCurrency),
+                root.get("occurredOn"));
+    }
+
+    /** How many rows in the group {@code fx_convert} could not price. */
+    private static Expression<Long> unconvertible(
+            Expression<BigDecimal> converted, CriteriaBuilder cb) {
+        return cb.sum(
+                cb.<Long>selectCase()
+                        .when(cb.isNull(converted), cb.literal(1L))
+                        .otherwise(cb.literal(0L))
+                        .as(Long.class));
+    }
+
     private static Predicate scope(
             UUID userId,
             TransactionFilter filter,
@@ -139,8 +189,16 @@ public class AnalyticsRepository {
         return TransactionSpecifications.reporting(userId, filter).toPredicate(root, query, cb);
     }
 
+    /**
+     * @param unconvertible how many of the {@code count} rows had no exchange
+     *     rate and are therefore absent from {@code total}
+     */
     public record TypeTotal(
-            TransactionType type, BigDecimal total, long count, BigDecimal largest) {}
+            TransactionType type,
+            BigDecimal total,
+            long count,
+            BigDecimal largest,
+            long unconvertible) {}
 
     public record CategoryTotal(
             UUID categoryId,

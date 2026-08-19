@@ -52,7 +52,36 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
             nativeQuery = true)
     List<AccountMovement> movementsFor(@Param("userId") UUID userId);
 
-    /** Projection for {@link #movementsFor}. */
+    /**
+     * The same aggregate over a date window, for the savings-goal projection
+     * (F-04).
+     *
+     * <p>Separate from {@link #movementsFor} rather than a parameterised
+     * version of it because the two answer different questions and one of them
+     * must not acquire a date filter by accident: a balance is all-time by
+     * definition, and a balance that silently became "since March" would be
+     * wrong everywhere it is shown.
+     */
+    @Query(
+            value =
+                    """
+                    select t.account_id                                                as accountId,
+                           coalesce(sum(case when t.type = 'income' then t.amount
+                                             else -t.amount end), 0)                   as movement,
+                           count(*)                                                    as txnCount
+                    from transactions t
+                    where t.user_id = :userId
+                      and t.deleted_at is null
+                      and t.occurred_on between :from and :to
+                    group by t.account_id
+                    """,
+            nativeQuery = true)
+    List<AccountMovement> movementsBetween(
+            @Param("userId") UUID userId,
+            @Param("from") java.time.LocalDate from,
+            @Param("to") java.time.LocalDate to);
+
+    /** Projection for {@link #movementsFor} and {@link #movementsBetween}. */
     interface AccountMovement {
         UUID getAccountId();
 

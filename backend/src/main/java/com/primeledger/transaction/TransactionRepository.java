@@ -24,6 +24,54 @@ public interface TransactionRepository
     long countByUserIdAndCategoryId(UUID userId, UUID categoryId);
 
     /**
+     * How many live transactions still point back at a recurring rule (F-03).
+     *
+     * <p>Soft-deleted rows are excluded and severed ones cannot match, so this
+     * answers "how many of this rule's transactions are still in the ledger",
+     * which is the number the rule's card shows.
+     */
+    long countByUserIdAndRecurringRuleIdAndDeletedAtIsNull(UUID userId, UUID recurringRuleId);
+
+    /**
+     * The occurrence dates a rule has already produced (F-03).
+     *
+     * <p>The materialiser's idempotency check, asked once per rule rather than
+     * once per occurrence. Soft-deleted rows are included on purpose: a user who
+     * deleted a generated transaction has said they do not want it, and
+     * regenerating it on the next catch-up would be the application arguing with
+     * them. {@code idx_txn_rule_occurrence} covers the same set for the same
+     * reason.
+     */
+    @Query(
+            """
+            select t.occurredOn from Transaction t
+             where t.userId = :userId
+               and t.recurringRuleId = :ruleId
+            """)
+    java.util.List<java.time.LocalDate> occurrenceDatesFor(
+            @Param("userId") UUID userId, @Param("ruleId") UUID ruleId);
+
+    /**
+     * Cuts every remaining tie between a rule and the transactions it created,
+     * so the rule can be deleted without taking them with it (F-03).
+     *
+     * <p>The foreign key is {@code ON DELETE SET NULL}, which would do this
+     * anyway. Doing it explicitly first means the entities Hibernate is holding
+     * agree with the rows — otherwise a transaction loaded earlier in the same
+     * persistence context keeps a rule id that no longer exists, and writing it
+     * back resurrects a foreign key to nothing.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(
+            """
+            update Transaction t
+               set t.recurringRuleId = null
+             where t.userId = :userId
+               and t.recurringRuleId = :ruleId
+            """)
+    int severFromRule(@Param("userId") UUID userId, @Param("ruleId") UUID ruleId);
+
+    /**
      * Bulk soft delete (proposal §8.1, {@code POST /transactions/bulk-delete}).
      *
      * @return how many rows were actually deleted, which is how the caller

@@ -9,6 +9,14 @@ primeledger:
   dev:
     user-id: 00000000-0000-4000-8000-000000000001
   seed-demo-data: false
+  fx:
+    # Never reached: unit tests touch no network. Present so that a slice test
+    # which happens to pull in the currency beans fails on the assertion it is
+    # about rather than on a missing placeholder.
+    api-url: http://fx.invalid
+    base: EUR
+    job:
+      enabled: false
 
 logging:
   level:

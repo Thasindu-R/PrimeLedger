@@ -31,6 +31,14 @@ public record SummaryResponse(
      *     on the current page
      * @param highestExpense the largest single expense, or "0.00" when there are
      *     none
+     * @param currency the base currency every figure above is expressed in
+     *     (F-05). Amounts are converted at the rate that applied on each
+     *     transaction's own date, so a past month reports the same number today
+     *     as it did when it ended.
+     * @param unconverted how many of {@code count} had no exchange rate
+     *     available and are therefore <em>missing</em> from the totals. Normally
+     *     zero. Anything else means the figures are understated and the client
+     *     should say so rather than present them as complete.
      */
     @Schema(name = "AnalyticsTotals")
     public record Totals(
@@ -38,7 +46,9 @@ public record SummaryResponse(
             @Schema(type = "string", example = "1875.50") String expense,
             @Schema(type = "string", example = "2324.50") String balance,
             @Schema(example = "384") long count,
-            @Schema(type = "string", example = "899.00") String highestExpense) {}
+            @Schema(type = "string", example = "899.00") String highestExpense,
+            @Schema(example = "LKR") String currency,
+            @Schema(example = "0") long unconverted) {}
 
     @Schema(name = "AnalyticsCategoryTotal")
     public record CategoryTotal(

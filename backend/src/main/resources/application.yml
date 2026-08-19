@@ -103,6 +103,38 @@ primeledger:
     fixed-user: ${FIXED_USER:false}
     user-id: 00000000-0000-4000-8000-000000000001
 
+  # Exchange rates (F-05). Frankfurter publishes the European Central Bank's
+  # reference rates: no key, no quota, and a number the user could look up
+  # themselves, which is the property that matters for a figure a finance app
+  # presents as fact.
+  fx:
+    # api.frankfurter.app now 301s to this host and path; the old one is what
+    # the proposal names and what .env.example shipped with, and a redirect is
+    # not something a JSON client should be following silently.
+    #
+    # Coverage is the thing to know before choosing a provider here: Frankfurter
+    # republishes the ECB's reference rates, which cover about thirty
+    # currencies. LKR is not among them. An account held in a currency the
+    # provider does not quote still works — amounts are stored natively and are
+    # never converted on the way in — but it cannot be included in a converted
+    # total, and the summary reports how many rows that affected rather than
+    # quietly dropping them. exchangerate.host covers more and wants an API key.
+    api-url: ${FX_API_URL:https://api.frankfurter.dev/v1}
+    # The currency every stored rate is quoted against, and the provider's own
+    # base. Not a preference: fx_convert divides one quote by another and is
+    # only correct while both are against the same thing, so changing this
+    # without clearing fx_rates would corrupt every conversion, historical ones
+    # included. FxRateService refuses to store a set with a different base.
+    base: ${FX_BASE:EUR}
+    job:
+      enabled: ${FX_JOB_ENABLED:true}
+      cron: ${FX_JOB_CRON:0 0 3 * * *}
+
+  recurring:
+    sweep:
+      enabled: ${RECURRING_SWEEP_ENABLED:true}
+      cron: ${RECURRING_SWEEP_CRON:0 30 1 * * *}
+
 logging:
   level:
     com.primeledger: INFO
